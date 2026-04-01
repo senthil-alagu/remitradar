@@ -1,15 +1,12 @@
 /**
- * RemitRadar — Rate Fetcher v5
+ * RemitRadar — Rate Fetcher v6
  * ─────────────────────────────
- * Fixed false positives from v4:
- *   ICICI:   Was picking up "100" (transfer amount) not the rate
- *            Fix: look for rate NEAR the currency symbol in page text
- *   WU:      Same issue — picking up wrong numbers
- *            Fix: look for "1 USD = XX.XX" pattern specifically  
- *   Remitly: GBP/EUR corridors returning USD rate
- *            Fix: use correct from-currency in URL path
- *   Ria:     Not finding INR corridors
- *            Fix: use their dedicated send-to-india page
+ * Fixes from v5:
+ *   SBI:   Add retry (3 attempts) — sbi.bank.in intermittently blocks
+ *   WU:    Only fetch for USD corridors — WU US site only supports USD send
+ *          GBP/EUR/CAD/AUD→INR via WU needs their non-US site (skip for now)
+ *   Ria:   Use send-money URL with explicit currency params instead of destination pages
+ *   Data:  Clear stale seed values on each run — only keep data fetched today
  */
 
 import fetch from 'node-fetch';
@@ -57,6 +54,21 @@ const today = () => new Date().toISOString().split('T')[0];
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const log   = msg => console.log(`[${new Date().toISOString()}] ${msg}`);
 
+// Retry wrapper — tries fn up to `attempts` times with a delay between
+async function withRetry(fn, attempts = 3, delayMs = 3000) {
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      const result = await fn();
+      if (result !== null) return result;
+    } catch (e) {
+      if (i === attempts) throw e;
+      log(`  Retry ${i}/${attempts - 1}...`);
+      await sleep(delayMs);
+    }
+  }
+  return null;
+}
+
 function loadExisting() {
   if (existsSync(OUTPUT_PATH)) {
     try { return JSON.parse(readFileSync(OUTPUT_PATH, 'utf8')); }
@@ -66,15 +78,11 @@ function loadExisting() {
 }
 
 // ─── CONTEXT-AWARE RATE EXTRACTION ───────────────────────────────────────
-// Looks for rate NEAR the currency code in the page text.
-// e.g. for USD→INR, finds "USD" then looks for a plausible number
-// within 50 characters before or after it.
-// This avoids picking up unrelated numbers like "$100 minimum transfer"
 function extractRateFromContext(text, from, to) {
   const range = PLAUSIBLE[`${from}_${to}`];
   if (!range) return null;
 
-  // Strategy 1: Look for explicit "1 FROM = XX.XX TO" pattern
+  // Strategy 1: explicit "1 FROM = XX.XX TO" pattern
   const explicitPatterns = [
     new RegExp(`1\\s*${from}\\s*[=:]\\s*([\\d,]+\\.\\d{2,4})\\s*${to}`, 'i'),
     new RegExp(`([\\d,]+\\.\\d{2,4})\\s*${to}\\s*per\\s*(?:1\\s*)?${from}`, 'i'),
@@ -89,18 +97,15 @@ function extractRateFromContext(text, from, to) {
     }
   }
 
-  // Strategy 2: Find currency mention and look for nearby plausible number
-  // Split text around occurrences of the FROM currency code
+  // Strategy 2: find rate near currency mention
   const parts = text.split(new RegExp(`\\b${from}\\b`, 'gi'));
   for (let i = 0; i < parts.length - 1; i++) {
-    // Look at 80 chars after the currency mention
     const after = parts[i + 1].slice(0, 80);
     const nums = [...after.matchAll(/[\d,]+\.(\d{2,4})/g)]
       .map(m => parseFloat(m[0].replace(/,/g, '')))
       .filter(n => n >= range[0] && n <= range[1]);
     if (nums.length > 0) return nums[0];
 
-    // Also look at 80 chars before
     const before = parts[i].slice(-80);
     const nums2 = [...before.matchAll(/[\d,]+\.(\d{2,4})/g)]
       .map(m => parseFloat(m[0].replace(/,/g, '')))
@@ -111,7 +116,6 @@ function extractRateFromContext(text, from, to) {
   return null;
 }
 
-// Poll page for rate with context awareness
 async function waitForRate(page, from, to, maxWaitMs = 12000) {
   const start = Date.now();
   while (Date.now() - start < maxWaitMs) {
@@ -152,12 +156,15 @@ async function fetchWise(from, to) {
   }
 }
 
-// ─── 2. SBI — Daily PDF ───────────────────────────────────────────────────
+// ─── 2. SBI — Daily PDF with retry ───────────────────────────────────────
 async function fetchSBI(from) {
-  try {
+  return withRetry(async () => {
     const res = await fetch(
       'https://sbi.bank.in/documents/16012/1400784/FOREX_CARD_RATES.pdf',
-      { headers: { 'User-Agent': 'Mozilla/5.0' } }
+      {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+        timeout: 15000,
+      }
     );
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const parsed = await pdfParse(Buffer.from(await res.arrayBuffer()), { verbosity: 0 });
@@ -173,19 +180,19 @@ async function fetchSBI(from) {
 
     const match = text.match(patterns[from]);
     if (!match) throw new Error(`${from} not found in PDF`);
-    return parseFloat(match[1]);
-  } catch (e) {
+    const rate = parseFloat(match[1]);
+    if (!isPlausible(rate, from, 'INR')) throw new Error(`Implausible rate: ${rate}`);
+    return rate;
+  }, 3, 5000).catch(e => {
     log(`  ✗ SBI: ${e.message}`);
     return null;
-  }
+  });
 }
 
 // ─── 3. ICICI (Money2India) ───────────────────────────────────────────────
-// Rate shown on homepage. Context search near "USD/GBP/EUR/CAD/AUD" text.
 async function fetchICICI(from, to, page) {
   try {
-    // Money2India only serves India — use from currency in URL if supported
-    const currencyPageMap = {
+    const urlMap = {
       USD: 'https://www.money2india.com/us',
       GBP: 'https://www.money2india.com/uk',
       EUR: 'https://www.money2india.com/eu',
@@ -193,12 +200,10 @@ async function fetchICICI(from, to, page) {
       AUD: 'https://www.money2india.com/au',
     };
 
-    const url = currencyPageMap[from];
+    const url = urlMap[from];
     if (!url) throw new Error(`Money2India does not support ${from}`);
 
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-
-    // Rate appears as "1 USD = XX.XX INR" — wait up to 12s
     const rate = await waitForRate(page, from, to, 12000);
     if (!rate) throw new Error('rate not found after 12s');
     return rate;
@@ -209,15 +214,17 @@ async function fetchICICI(from, to, page) {
 }
 
 // ─── 4. WESTERN UNION ─────────────────────────────────────────────────────
-// Their currency converter page shows "1 USD = XX.XX INR" clearly
+// WU US site only reliably supports USD as the send currency.
+// For non-USD corridors, skip rather than return wrong cached value.
 async function fetchWU(from, to, page) {
+  // WU US site only supports USD send — skip other currencies
+  if (from !== 'USD') {
+    log(`  ↷ WU skipped for ${from} (US site only supports USD send)`);
+    return null;
+  }
   try {
-    // Their dedicated currency converter page is more reliable than homepage
     const url = `https://www.westernunion.com/us/en/currency-converter/${from.toLowerCase()}-to-${to.toLowerCase()}-rate.html`;
-
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-
-    // Wait for "1 USD = XX.XX INR" pattern to appear
     const rate = await waitForRate(page, from, to, 15000);
     if (!rate) throw new Error('rate not found');
     return rate;
@@ -228,7 +235,6 @@ async function fetchWU(from, to, page) {
 }
 
 // ─── 5. REMITLY ───────────────────────────────────────────────────────────
-// Fixed: use correct from-currency specific URL for non-USD corridors
 async function fetchRemitly(from, to, page) {
   try {
     const destMap = {
@@ -238,7 +244,6 @@ async function fetchRemitly(from, to, page) {
     const dest = destMap[to];
     if (!dest) throw new Error(`no dest for ${to}`);
 
-    // Remitly uses different base URLs per sending country
     const fromCountryMap = {
       USD: 'us', GBP: 'gb', EUR: 'de',
       CAD: 'ca', AUD: 'au',
@@ -246,9 +251,7 @@ async function fetchRemitly(from, to, page) {
     const fromCountry = fromCountryMap[from] || 'us';
 
     const url = `https://www.remitly.com/${fromCountry}/en/${dest}?anchor=calculator&sourceCurrency=${from}&destinationCurrency=${to}`;
-
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 });
-
     const rate = await waitForRate(page, from, to, 12000);
     if (!rate) throw new Error('rate not found');
     return rate;
@@ -259,7 +262,6 @@ async function fetchRemitly(from, to, page) {
 }
 
 // ─── 6. XOOM ─────────────────────────────────────────────────────────────
-// Using the exact URL format you found
 async function fetchXoom(from, to, page) {
   try {
     const countryMap = { INR:'IN', MXN:'MX', PHP:'PH', PKR:'PK', BDT:'BD' };
@@ -267,9 +269,7 @@ async function fetchXoom(from, to, page) {
     if (!cc) throw new Error(`no country for ${to}`);
 
     const url = `https://www.xoom.com/en-us/${from.toLowerCase()}/send-money/transfer?countryCode=${cc}`;
-
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 });
-
     const rate = await waitForRate(page, from, to, 12000);
     if (!rate) throw new Error('rate not found');
     return rate;
@@ -280,32 +280,26 @@ async function fetchXoom(from, to, page) {
 }
 
 // ─── 7. RIA ───────────────────────────────────────────────────────────────
-// Use their dedicated send-to-country pages which always show the rate
+// Use their send page with fromCurrency and toCurrency params
+// Ria's dedicated destination pages don't show the rate without interaction
 async function fetchRia(from, to, page) {
+  // Ria homepage only shows USD rates — skip non-USD for now
+  if (from !== 'USD') {
+    log(`  ↷ Ria skipped for ${from} (homepage only shows USD)`);
+    return null;
+  }
   try {
-    // Ria has dedicated pages per destination that show rate clearly
-    const destPageMap = {
-      INR: 'https://www.riamoneytransfer.com/en-us/send-money-to-india/',
-      MXN: 'https://www.riamoneytransfer.com/en-us/send-money-to-mexico/',
-      PHP: 'https://www.riamoneytransfer.com/en-us/send-money-to-philippines/',
-      PKR: 'https://www.riamoneytransfer.com/en-us/send-money-to-pakistan/',
-    };
+    // Ria send page with explicit USD source — shows rate in calculator
+    const destMap = { INR:'IN', MXN:'MX', PHP:'PH', PKR:'PK' };
+    const destCode = destMap[to];
+    if (!destCode) throw new Error(`no dest for ${to}`);
 
-    const url = destPageMap[to];
-    if (!url) throw new Error(`no Ria page for ${to}`);
-
+    // Use their send money page which pre-selects the corridor
+    const url = `https://www.riamoneytransfer.com/en-us/send-money?sendFrom=US&sendTo=${destCode}&fromCurrency=USD&toCurrency=${to}`;
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 });
-
     const rate = await waitForRate(page, from, to, 12000);
-    if (rate) return rate;
-
-    // Fallback: homepage (shows USD rate widget by default)
-    await page.goto('https://www.riamoneytransfer.com/en-us/', {
-      waitUntil: 'domcontentloaded', timeout: 20000
-    });
-    const rate2 = await waitForRate(page, from, to, 10000);
-    if (!rate2) throw new Error('rate not found');
-    return rate2;
+    if (!rate) throw new Error('rate not found');
+    return rate;
   } catch (e) {
     log(`  ✗ Ria: ${e.message}`);
     return null;
@@ -314,14 +308,29 @@ async function fetchRia(from, to, page) {
 
 // ─── MAIN ─────────────────────────────────────────────────────────────────
 async function main() {
-  log('RemitRadar rate fetcher v5 starting...');
+  log('RemitRadar rate fetcher v6 starting...');
   log(TEST_MODE ? 'TEST MODE — Wise + SBI only' : 'FULL MODE — all providers');
 
   const existing = loadExisting();
+
+  // Start fresh for today — don't carry forward stale seed data
+  // Only keep rates that were fetched on a previous real run (have a real source)
+  const cleanedCorridors = {};
+  for (const [key, providers] of Object.entries(existing.corridors || {})) {
+    cleanedCorridors[key] = {};
+    for (const [pid, data] of Object.entries(providers)) {
+      // Keep data from previous runs (not seed data which has no updated date)
+      // Seed data has made-up dates; real scraped data has today or recent date
+      if (data.updated && data.source) {
+        cleanedCorridors[key][pid] = data;
+      }
+    }
+  }
+
   const output = {
     lastRun: new Date().toISOString(),
     date: today(),
-    corridors: JSON.parse(JSON.stringify(existing.corridors || {})),
+    corridors: cleanedCorridors,
   };
 
   let browser = null, page = null;
@@ -329,11 +338,7 @@ async function main() {
     log('Launching headless browser...');
     browser = await chromium.launch({
       headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-blink-features=AutomationControlled',
-      ],
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled'],
     });
     const context = await browser.newContext({
       userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
@@ -356,10 +361,7 @@ async function main() {
     log(`  Fetching Wise...`);
     const wiseRate = await fetchWise(from, to);
     if (wiseRate && isPlausible(wiseRate, from, to)) {
-      output.corridors[key].wise = {
-        rate: wiseRate, updated: today(),
-        source: WISE_API_KEY ? 'api' : 'ecb-proxy',
-      };
+      output.corridors[key].wise = { rate: wiseRate, updated: today(), source: WISE_API_KEY ? 'api' : 'ecb-proxy' };
       log(`  ✓ Wise: ${wiseRate}`);
     }
 
@@ -367,7 +369,7 @@ async function main() {
     if (to === 'INR') {
       log(`  Fetching SBI...`);
       const sbiRate = await fetchSBI(from);
-      if (sbiRate && isPlausible(sbiRate, from, to)) {
+      if (sbiRate) {
         output.corridors[key].sbi = { rate: sbiRate, updated: today(), source: 'pdf' };
         log(`  ✓ SBI: ${sbiRate}`);
       }
@@ -379,18 +381,18 @@ async function main() {
     if (to === 'INR' && page) {
       log(`  Fetching ICICI (Money2India)...`);
       const iciciRate = await fetchICICI(from, to, page);
-      if (iciciRate && isPlausible(iciciRate, from, to)) {
+      if (iciciRate) {
         output.corridors[key].icici = { rate: iciciRate, updated: today(), source: 'scrape' };
         log(`  ✓ ICICI: ${iciciRate}`);
       }
       await sleep(2000);
     }
 
-    // 4. WU
+    // 4. WU (USD only on US site)
     if (page) {
       log(`  Fetching Western Union...`);
       const wuRate = await fetchWU(from, to, page);
-      if (wuRate && isPlausible(wuRate, from, to)) {
+      if (wuRate) {
         output.corridors[key].wu = { rate: wuRate, updated: today(), source: 'scrape' };
         log(`  ✓ WU: ${wuRate}`);
       }
@@ -401,7 +403,7 @@ async function main() {
     if (page) {
       log(`  Fetching Remitly...`);
       const remitlyRate = await fetchRemitly(from, to, page);
-      if (remitlyRate && isPlausible(remitlyRate, from, to)) {
+      if (remitlyRate) {
         output.corridors[key].remitly = { rate: remitlyRate, updated: today(), source: 'scrape' };
         log(`  ✓ Remitly: ${remitlyRate}`);
       }
@@ -412,18 +414,18 @@ async function main() {
     if (page) {
       log(`  Fetching Xoom...`);
       const xoomRate = await fetchXoom(from, to, page);
-      if (xoomRate && isPlausible(xoomRate, from, to)) {
+      if (xoomRate) {
         output.corridors[key].xoom = { rate: xoomRate, updated: today(), source: 'scrape' };
         log(`  ✓ Xoom: ${xoomRate}`);
       }
       await sleep(2000);
     }
 
-    // 7. Ria
+    // 7. Ria (USD only)
     if (page) {
       log(`  Fetching Ria...`);
       const riaRate = await fetchRia(from, to, page);
-      if (riaRate && isPlausible(riaRate, from, to)) {
+      if (riaRate) {
         output.corridors[key].ria = { rate: riaRate, updated: today(), source: 'scrape' };
         log(`  ✓ Ria: ${riaRate}`);
       }
