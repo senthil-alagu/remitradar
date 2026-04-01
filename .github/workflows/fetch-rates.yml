@@ -9,36 +9,29 @@ jobs:
   fetch-rates:
     name: Fetch and update rates
     runs-on: ubuntu-latest
-
     permissions:
       contents: write
-
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: scraper/package.json
-
       - name: Install dependencies
         working-directory: scraper
         run: npm install
-
       - name: Install Playwright browsers
         working-directory: scraper
         run: npx playwright install chromium --with-deps
-
       - name: Fetch rates
         working-directory: scraper
         env:
           WISE_API_KEY: ${{ secrets.WISE_API_KEY }}
         run: node fetch_rates.js
         continue-on-error: true
-
       - name: Commit updated rates
         run: |
           git config user.name "RemitRadar Bot"
@@ -46,14 +39,12 @@ jobs:
           git add public/rates.json
           git diff --staged --quiet || git commit -m "chore: update rates $(date -u '+%Y-%m-%d %H:%M UTC')"
           git push
-
       - name: Print summary
         run: |
           node -e "
             const d = JSON.parse(require('fs').readFileSync('public/rates.json','utf8'));
             console.log('Last run:', d.lastRun);
-            for (const [corridor, providers] of Object.entries(d.corridors)) {
-              const summary = Object.entries(providers).map(([p,v]) => p+':'+v.rate).join(' | ');
-              console.log(corridor + ': ' + summary);
+            for (const [c, p] of Object.entries(d.corridors)) {
+              console.log(c + ': ' + Object.entries(p).map(([k,v]) => k+':'+v.rate).join(' | '));
             }
           "
