@@ -44,4 +44,16 @@ jobs:
           git config user.name "RemitRadar Bot"
           git config user.email "bot@remiradar.com"
           git add public/rates.json
-          git diff --staged --quiet || g
+          git diff --staged --quiet || git commit -m "chore: update rates $(date -u '+%Y-%m-%d %H:%M UTC')"
+          git push
+
+      - name: Print summary
+        run: |
+          node -e "
+            const d = JSON.parse(require('fs').readFileSync('public/rates.json','utf8'));
+            console.log('Last run:', d.lastRun);
+            for (const [corridor, providers] of Object.entries(d.corridors)) {
+              const summary = Object.entries(providers).map(([p,v]) => p+':'+v.rate).join(' | ');
+              console.log(corridor + ': ' + summary);
+            }
+          "
