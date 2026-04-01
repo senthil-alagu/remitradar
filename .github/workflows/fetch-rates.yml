@@ -34,6 +34,8 @@ jobs:
 
       - name: Fetch rates
         working-directory: scraper
+        env:
+          WISE_API_KEY: ${{ secrets.WISE_API_KEY }}
         run: node fetch_rates.js
         continue-on-error: true
 
@@ -42,5 +44,4 @@ jobs:
           git config user.name "RemitRadar Bot"
           git config user.email "bot@remiradar.com"
           git add public/rates.json
-          git diff --staged --quiet || git commit -m "chore: update rates $(date -u '+%Y-%m-%d %H:%M UTC')"
-          git push
+          git diff --staged --quiet || g
