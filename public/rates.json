@@ -1,15 +1,16 @@
 {
-  "lastRun": "2026-04-01T00:37:51.854Z",
+  "lastRun": "2026-04-01T10:48:02.194Z",
   "date": "2026-04-01",
   "corridors": {
     "USD_INR": {
       "wise": {
-        "rate": 84.12,
-        "updated": "2025-04-01",
-        "source": "api"
+        "rate": 93.83,
+        "updated": "2026-04-01",
+        "source": "ecb-proxy",
+        "note": "ECB mid-market ≈ Wise rate"
       },
       "remitly": {
-        "rate": 93.88,
+        "rate": 93.63,
         "updated": "2026-04-01",
         "source": "scrape"
       },
@@ -41,12 +42,13 @@
     },
     "USD_MXN": {
       "wise": {
-        "rate": 18.24,
-        "updated": "2025-04-01",
-        "source": "api"
+        "rate": 18.0118,
+        "updated": "2026-04-01",
+        "source": "ecb-proxy",
+        "note": "ECB mid-market ≈ Wise rate"
       },
       "remitly": {
-        "rate": 93.88,
+        "rate": 18.22,
         "updated": "2026-04-01",
         "source": "scrape"
       },
@@ -68,12 +70,13 @@
     },
     "USD_PHP": {
       "wise": {
-        "rate": 56.42,
-        "updated": "2025-04-01",
-        "source": "api"
+        "rate": 60.689,
+        "updated": "2026-04-01",
+        "source": "ecb-proxy",
+        "note": "ECB mid-market ≈ Wise rate"
       },
       "remitly": {
-        "rate": 93.88,
+        "rate": 60.58,
         "updated": "2026-04-01",
         "source": "scrape"
       },
@@ -100,7 +103,7 @@
         "source": "api"
       },
       "remitly": {
-        "rate": 93.88,
+        "rate": 283.8,
         "updated": "2026-04-01",
         "source": "scrape"
       },
@@ -122,9 +125,10 @@
     },
     "GBP_INR": {
       "wise": {
-        "rate": 107.85,
-        "updated": "2025-04-01",
-        "source": "api"
+        "rate": 124.24,
+        "updated": "2026-04-01",
+        "source": "ecb-proxy",
+        "note": "ECB mid-market ≈ Wise rate"
       },
       "remitly": {
         "rate": 93.88,
@@ -159,12 +163,13 @@
     },
     "EUR_INR": {
       "wise": {
-        "rate": 91.2,
-        "updated": "2025-04-01",
-        "source": "api"
+        "rate": 107.88,
+        "updated": "2026-04-01",
+        "source": "ecb-proxy",
+        "note": "ECB mid-market ≈ Wise rate"
       },
       "remitly": {
-        "rate": 93.88,
+        "rate": 93.63,
         "updated": "2026-04-01",
         "source": "scrape"
       },
@@ -196,9 +201,10 @@
     },
     "CAD_INR": {
       "wise": {
-        "rate": 61.45,
-        "updated": "2025-04-01",
-        "source": "api"
+        "rate": 67.332,
+        "updated": "2026-04-01",
+        "source": "ecb-proxy",
+        "note": "ECB mid-market ≈ Wise rate"
       },
       "remitly": {
         "rate": 93.88,
@@ -233,9 +239,10 @@
     },
     "AUD_INR": {
       "wise": {
-        "rate": 53.8,
-        "updated": "2025-04-01",
-        "source": "api"
+        "rate": 64.626,
+        "updated": "2026-04-01",
+        "source": "ecb-proxy",
+        "note": "ECB mid-market ≈ Wise rate"
       },
       "remitly": {
         "rate": 93.88,
