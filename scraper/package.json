@@ -1,6 +1,6 @@
 {
   "name": "remiradar-scraper",
-  "version": "5.0.0",
+  "version": "6.0.0",
   "description": "Automated rate fetcher for RemitRadar",
   "type": "module",
   "main": "fetch_rates.js",
