@@ -1,41 +1,33 @@
 /**
- * RemitRadar — Rate Fetcher v2
+ * RemitRadar — Rate Fetcher v3
  * ─────────────────────────────
- * Fixed issues from v1:
- *   - Wise:    API now requires auth → use Frankfurter (ECB) as proxy for Wise rate
- *              Wise tracks mid-market closely so ECB rate ≈ Wise rate (we label it accordingly)
- *              To get the REAL Wise rate: sign up at wise.com/partners and store
- *              your API key as a GitHub Secret (see README)
- *   - SBI:     URL changed → now fetch their daily PDF from sbi.bank.in
- *   - ICICI:   URL 404 → use icicibankusa.com rate page (scrapes cleanly)
- *   - WU:      Cloudflare blocks headless → use their public JSON endpoint
- *   - Remitly: Was returning INR rate for all corridors → fixed URL + selector
- *   - Xoom:    Rate pattern not found → improved pattern + fallback
- *   - Ria:     Rate pattern not found → improved URL + pattern
+ * Fixes from v2:
+ *   SBI:    Use pdf-parse library to properly extract PDF text
+ *   WU:     Use Playwright (their JSON endpoint 404s) - wait for rate element
+ *   ICICI:  Use Playwright - wait for JS-rendered table
+ *   Xoom:   Fixed URL pattern + wait longer for JS render
+ *   Ria:    Fixed URL + wait for calculator widget
  *
- * Usage:
- *   node fetch_rates.js           → full run
- *   node fetch_rates.js --test    → only Frankfurter + SBI (no Playwright)
+ * Working: Wise (ECB proxy), Remitly
+ * Fixed:   SBI, WU, ICICI, Xoom, Ria
  */
 
 import fetch from 'node-fetch';
-import * as cheerio from 'cheerio';
+import { createRequire } from 'module';
 import { chromium } from 'playwright';
 import { writeFileSync, readFileSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+const require    = createRequire(import.meta.url);
+const pdfParse   = require('pdf-parse');
+
+const __dirname   = dirname(fileURLToPath(import.meta.url));
 const OUTPUT_PATH = join(__dirname, '../public/rates.json');
 const TEST_MODE   = process.argv.includes('--test');
-
-// ─── WISE API KEY (optional) ───────────────────────────────────────────────
-// If you have a Wise affiliate API key, set it as a GitHub Secret named WISE_API_KEY
-// The workflow passes it as an environment variable automatically
-// Without it, we use Frankfurter (ECB) which is virtually identical to Wise's rate
 const WISE_API_KEY = process.env.WISE_API_KEY || null;
 
-// ─── CORRIDORS ─────────────────────────────────────────────────────────────
+// ─── CORRIDORS ────────────────────────────────────────────────────────────
 const CORRIDORS = [
   { from: 'USD', to: 'INR' },
   { from: 'USD', to: 'MXN' },
@@ -47,10 +39,25 @@ const CORRIDORS = [
   { from: 'AUD', to: 'INR' },
 ];
 
-// ─── HELPERS ───────────────────────────────────────────────────────────────
-const today  = () => new Date().toISOString().split('T')[0];
-const sleep  = ms => new Promise(r => setTimeout(r, ms));
-const log    = msg => console.log(`[${new Date().toISOString()}] ${msg}`);
+// ─── PLAUSIBILITY RANGES ─────────────────────────────────────────────────
+// Reject any scraped rate outside these bounds — prevents wrong data being saved
+const PLAUSIBLE = {
+  USD_INR: [75, 105],  USD_MXN: [14, 28],   USD_PHP: [48, 70],
+  USD_PKR: [230, 340], GBP_INR: [90, 145],  EUR_INR: [80, 120],
+  CAD_INR: [52, 85],   AUD_INR: [48, 78],
+};
+
+function isPlausible(rate, from, to) {
+  if (!rate || isNaN(rate) || rate <= 0) return false;
+  const r = PLAUSIBLE[`${from}_${to}`];
+  if (!r) return true;
+  return rate >= r[0] && rate <= r[1];
+}
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────
+const today = () => new Date().toISOString().split('T')[0];
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const log   = msg => console.log(`[${new Date().toISOString()}] ${msg}`);
 
 function loadExisting() {
   if (existsSync(OUTPUT_PATH)) {
@@ -60,52 +67,44 @@ function loadExisting() {
   return { corridors: {} };
 }
 
-// ─── 1. FRANKFURTER (ECB) — mid-market rate ───────────────────────────────
-// Used as the Wise rate when no Wise API key is present.
-// Wise charges the mid-market rate with a small % fee on top — the rate
-// itself matches ECB closely. We label this as "≈ Wise" in the output.
-async function fetchFrankfurter(from, to) {
+// ─── 1. WISE / FRANKFURTER ────────────────────────────────────────────────
+async function fetchWise(from, to) {
+  // Try real Wise API first if key available
+  if (WISE_API_KEY) {
+    try {
+      const encoded = Buffer.from(`${WISE_API_KEY}:`).toString('base64');
+      const res = await fetch(
+        `https://api.transferwise.com/v1/rates?source=${from}&target=${to}`,
+        { headers: { Authorization: `Basic ${encoded}` } }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (data[0]?.rate) return parseFloat(data[0].rate);
+      }
+    } catch (e) {
+      log(`  Wise API failed, falling back to ECB: ${e.message}`);
+    }
+  }
+  // Fallback: ECB via Frankfurter (Wise tracks mid-market rate very closely)
   try {
-    const res  = await fetch(`https://api.frankfurter.app/latest?from=${from}&to=${to}`);
+    const res = await fetch(`https://api.frankfurter.app/latest?from=${from}&to=${to}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    const rate = data.rates[to];
-    if (!rate) throw new Error('pair not in ECB data');
-    return parseFloat(rate);
+    if (!data.rates[to]) throw new Error('pair not in ECB data');
+    return parseFloat(data.rates[to]);
   } catch (e) {
     log(`  ✗ Frankfurter ${from}→${to}: ${e.message}`);
     return null;
   }
 }
 
-// ─── 2. WISE — Official API (if API key available) ─────────────────────────
-// Get a free Wise affiliate API key at: https://wise.com/partners
-// Store it as GitHub Secret WISE_API_KEY in your repo settings
-async function fetchWise(from, to) {
-  if (!WISE_API_KEY) {
-    // Fall back to Frankfurter — ECB rate ≈ Wise rate
-    return await fetchFrankfurter(from, to);
-  }
-  try {
-    const encoded = Buffer.from(`${WISE_API_KEY}:`).toString('base64');
-    const res = await fetch(
-      `https://api.transferwise.com/v1/rates?source=${from}&target=${to}`,
-      { headers: { Authorization: `Basic ${encoded}` } }
-    );
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    if (!data[0]?.rate) throw new Error('no rate in response');
-    return parseFloat(data[0].rate);
-  } catch (e) {
-    log(`  ✗ Wise API ${from}→${to}: ${e.message} — falling back to Frankfurter`);
-    return await fetchFrankfurter(from, to);
-  }
-}
-
-// ─── 3. SBI — Daily PDF (fixed URL) ───────────────────────────────────────
-// SBI publishes a single PDF at a fixed URL, updated every working day.
-// PDF text has clean columns: currency name | TT BUY | TT SELL | ...
-// We parse TT BUY which is what an NRI remittance sender gets.
+// ─── 2. SBI — PDF with pdf-parse ─────────────────────────────────────────
+// SBI publishes a daily PDF at a fixed URL.
+// pdf-parse properly extracts text from the binary PDF.
+// The extracted text looks like:
+//   "UNITED STATES DOLLAR USD/INR 91.93 92.78 91.86 ..."
+// Column order: TT BUY | TT SELL | BILL BUY | BILL SELL | ...
+// We take TT BUY (first number after the currency code) = best rate for NRI
 async function fetchSBI(from) {
   try {
     const res = await fetch(
@@ -114,29 +113,25 @@ async function fetchSBI(from) {
     );
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-    // We need to parse the PDF text — use a simple text fetch
-    // The PDF returns readable text when fetched with Accept: text/plain
-    const buffer   = await res.arrayBuffer();
-    const bytes    = Buffer.from(buffer);
+    const buffer = Buffer.from(await res.arrayBuffer());
+    const parsed = await pdfParse(buffer);
+    const text   = parsed.text;
 
-    // Extract text using basic pattern — SBI PDF has consistent layout
-    // Line format: "CURRENCY NAME CCC/INR  <TT_BUY>  <TT_SELL>  ..."
-    const text = bytes.toString('utf8');
-
-    const currencyPatterns = {
-      USD: /UNITED STATES DOLLAR\s+USD\/INR\s+([\d.]+)/i,
-      GBP: /GREAT BRITAIN POUND\s+GBP\/INR\s+([\d.]+)/i,
-      EUR: /EURO\s+EUR\/INR\s+([\d.]+)/i,
-      CAD: /CANADIAN DOLLAR\s+CAD\/INR\s+([\d.]+)/i,
-      AUD: /AUSTRALIAN DOLLAR\s+AUD\/INR\s+([\d.]+)/i,
-      SGD: /SINGAPORE DOLLAR\s+SGD\/INR\s+([\d.]+)/i,
+    // Map of currency names exactly as they appear in SBI PDF
+    const patterns = {
+      USD: /UNITED STATES DOLLAR\s+USD\/INR\s+([\d.]+)/,
+      GBP: /GREAT BRITAIN POUND\s+GBP\/INR\s+([\d.]+)/,
+      EUR: /EURO\s+EUR\/INR\s+([\d.]+)/,
+      CAD: /CANADIAN DOLLAR\s+CAD\/INR\s+([\d.]+)/,
+      AUD: /AUSTRALIAN DOLLAR\s+AUD\/INR\s+([\d.]+)/,
+      SGD: /SINGAPORE DOLLAR\s+SGD\/INR\s+([\d.]+)/,
     };
 
-    const pattern = currencyPatterns[from];
-    if (!pattern) return null;
+    const pattern = patterns[from];
+    if (!pattern) throw new Error(`No pattern defined for ${from}`);
 
     const match = text.match(pattern);
-    if (!match) throw new Error(`${from} pattern not found in SBI PDF`);
+    if (!match) throw new Error(`${from} not found in PDF text`);
 
     return parseFloat(match[1]);
   } catch (e) {
@@ -145,122 +140,130 @@ async function fetchSBI(from) {
   }
 }
 
-// ─── 4. ICICI — USA branch rate page ──────────────────────────────────────
-// ICICI Bank USA publishes inward remittance rates on a simple HTML page.
-// URL: https://www.icicibankusa.com/en/remittance_services/exchange_rate
-async function fetchICICI(from, page) {
+// ─── 3. WESTERN UNION — Playwright ───────────────────────────────────────
+// WU's rate is JavaScript-rendered. Their public currency converter page
+// shows the rate clearly once JS loads.
+async function fetchWU(from, to, page) {
   try {
-    const url = 'https://www.icicibankusa.com/en/remittance_services/exchange_rate';
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
-    await sleep(2000);
+    // Use their currency converter page which shows rate for 1 unit
+    const toCountry = { INR:'india', MXN:'mexico', PHP:'philippines', PKR:'pakistan', BDT:'bangladesh', NGN:'nigeria' };
+    const country = toCountry[to];
+    if (!country) throw new Error(`No country mapping for ${to}`);
 
-    const content = await page.content();
-    const $       = cheerio.load(content);
+    const url = `https://www.westernunion.com/us/en/currency-converter/${from.toLowerCase()}-to-${to.toLowerCase()}-rate.html`;
 
-    const currencyMap = {
-      USD: ['usd', 'us dollar', 'united states'],
-      GBP: ['gbp', 'british pound', 'pound sterling', 'great britain'],
-      EUR: ['eur', 'euro'],
-      CAD: ['cad', 'canadian'],
-      AUD: ['aud', 'australian'],
-      SGD: ['sgd', 'singapore'],
-    };
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
-    const aliases = currencyMap[from];
-    if (!aliases) return null;
+    // Wait for the rate element to appear (WU uses React, rate loads async)
+    try {
+      await page.waitForSelector('[data-testid="fxRate"], .fxRate, [class*="exchangeRate"], .exchange-rate', {
+        timeout: 8000
+      });
+    } catch {
+      // Element didn't appear — try waiting for any number that looks like a rate
+      await sleep(5000);
+    }
 
-    let rate = null;
-    $('table tr, .rate-row, [class*="rate"]').each((_, el) => {
-      const text = $(el).text().toLowerCase();
-      if (aliases.some(a => text.includes(a))) {
-        // Extract the first reasonable number (INR rate > 50 for major currencies)
-        const nums = text.match(/[\d.]+/g) || [];
-        for (const n of nums) {
-          const v = parseFloat(n);
-          if (v > 50 && v < 200) { rate = v; return false; }
-        }
+    const bodyText = await page.textContent('body');
+
+    // WU shows: "1.00 USD = XX.XX INR" or "FX: 1.00 USD = XX.XX INR"
+    const patterns = [
+      new RegExp(`1(?:\\.00)?\\s*${from}\\s*=\\s*([\\d,]+\\.?\\d*)\\s*${to}`, 'i'),
+      new RegExp(`([\\d,]+\\.\\d{2})\\s*${to}`, 'i'),
+    ];
+
+    for (const p of patterns) {
+      const m = bodyText.match(p);
+      if (m) {
+        const num = parseFloat(m[1].replace(/,/g, ''));
+        if (isPlausible(num, from, to)) return num;
       }
-    });
+    }
 
-    if (!rate) throw new Error('rate not found on page');
-    return rate;
-  } catch (e) {
-    log(`  ✗ ICICI ${from}→INR: ${e.message}`);
-    return null;
-  }
-}
-
-// ─── 5. WESTERN UNION — Public JSON endpoint ───────────────────────────────
-// WU exposes a public pricing endpoint used by their own website.
-// No auth required, returns JSON. Much more reliable than headless scraping.
-async function fetchWU(from, to) {
-  try {
-    // WU public pricing API — used internally by their website
-    const countryMap = {
-      INR: { country: 'IN', currency: 'INR' },
-      MXN: { country: 'MX', currency: 'MXN' },
-      PHP: { country: 'PH', currency: 'PHP' },
-      PKR: { country: 'PK', currency: 'PKR' },
-      BDT: { country: 'BD', currency: 'BDT' },
-      NGN: { country: 'NG', currency: 'NGN' },
-    };
-
-    const dest = countryMap[to];
-    if (!dest) return null;
-
-    // WU's public pricing endpoint
-    const url = `https://www.westernunion.com/en-us/send-money/app/price-quote?sendAmount=500&sendCurrency=${from}&receiveCurrency=${dest.currency}&receiveCountry=${dest.country}&paymentMethod=BANKACCOUNT&deliveryMethod=BANKDEPOSIT`;
-
-    const res = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': 'application/json, text/plain, */*',
-        'Referer': 'https://www.westernunion.com/',
-      }
-    });
-
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-
-    // WU JSON response has exchangeRate or payoutAmount fields
-    const rate = data?.exchangeRate
-               || data?.payoutDetails?.exchangeRate
-               || data?.quote?.exchangeRate;
-
-    if (!rate) throw new Error(`No rate in WU response: ${JSON.stringify(data).slice(0,200)}`);
-    return parseFloat(rate);
+    throw new Error('rate not found in page text');
   } catch (e) {
     log(`  ✗ WU ${from}→${to}: ${e.message}`);
     return null;
   }
 }
 
-// ─── 6. REMITLY — Headless with correct URL ───────────────────────────────
-// Fixed: use the correct corridor-specific URL and improved selectors
+// ─── 4. ICICI — Playwright, wait for JS table ─────────────────────────────
+// ICICI USA rate page loads rates via JavaScript.
+// We wait for the table to render before reading.
+async function fetchICICI(from, page) {
+  try {
+    await page.goto(
+      'https://www.icicibankusa.com/en/remittance_services/exchange_rate',
+      { waitUntil: 'domcontentloaded', timeout: 25000 }
+    );
+
+    // Wait for table rows to appear
+    try {
+      await page.waitForSelector('table tr td, .rate-table td, [class*="exchange"] td', {
+        timeout: 8000
+      });
+    } catch {
+      await sleep(5000);
+    }
+
+    const bodyText = await page.textContent('body');
+
+    // ICICI USA shows: "USD  91.50" or "1 USD = 91.50 INR"
+    const aliases = {
+      USD: ['usd', 'us dollar', 'united states dollar'],
+      GBP: ['gbp', 'british pound', 'great britain'],
+      EUR: ['eur', 'euro'],
+      CAD: ['cad', 'canadian'],
+      AUD: ['aud', 'australian'],
+    };
+
+    const lines = bodyText.split('\n');
+    for (const line of lines) {
+      const lower = line.toLowerCase();
+      const fromAliases = aliases[from] || [];
+      if (fromAliases.some(a => lower.includes(a))) {
+        const nums = line.match(/[\d.]+/g) || [];
+        for (const n of nums) {
+          const v = parseFloat(n);
+          if (isPlausible(v, from, 'INR')) return v;
+        }
+      }
+    }
+
+    // Fallback: scan for a rate pattern anywhere
+    const pattern = new RegExp(`${from}[^\\d]*(\\d{2,3}\\.\\d{2})`, 'i');
+    const m = bodyText.match(pattern);
+    if (m) {
+      const v = parseFloat(m[1]);
+      if (isPlausible(v, from, 'INR')) return v;
+    }
+
+    throw new Error('rate not found in page');
+  } catch (e) {
+    log(`  ✗ ICICI ${from}→INR: ${e.message}`);
+    return null;
+  }
+}
+
+// ─── 5. REMITLY — Playwright (already working, minor improvements) ────────
 async function fetchRemitly(from, to, page) {
   try {
-    // Remitly corridor page — must specify both currencies in URL
     const destMap = {
-      INR: 'india', MXN: 'mexico', PHP: 'philippines',
-      PKR: 'pakistan', BDT: 'bangladesh', NGN: 'nigeria',
+      INR:'india', MXN:'mexico', PHP:'philippines',
+      PKR:'pakistan', BDT:'bangladesh', NGN:'nigeria',
     };
     const dest = destMap[to];
-    if (!dest) return null;
+    if (!dest) throw new Error(`No dest mapping for ${to}`);
 
     const url = `https://www.remitly.com/us/en/${dest}/send-from-us?anchor=calculator&sourceCurrency=${from}&destinationCurrency=${to}`;
-
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 });
-    await sleep(4000); // wait for JS to render the rate
+    await sleep(4000);
 
-    // Strategy 1: look for exchange rate in specific data attributes
-    let rate = null;
-
-    // Try multiple selectors Remitly uses
+    // Try specific selectors first
     const selectors = [
       '[data-testid="exchange-rate"]',
       '[data-testid="fx-rate"]',
-      '.exchange-rate__rate',
-      '[class*="ExchangeRate"][class*="value"]',
+      '[class*="ExchangeRate"]',
       '[class*="exchangeRate"]',
     ];
 
@@ -269,70 +272,68 @@ async function fetchRemitly(from, to, page) {
         const el = await page.$(sel);
         if (el) {
           const txt = await el.textContent();
-          const num = parseFloat(txt.replace(/[^0-9.]/g, ''));
-          if (num > 0 && num < 100000) { rate = num; break; }
+          const n = parseFloat(txt.replace(/[^0-9.]/g, ''));
+          if (isPlausible(n, from, to)) return n;
         }
       } catch { continue; }
     }
 
-    // Strategy 2: scan page text for rate pattern specific to the corridor
-    if (!rate) {
-      const bodyText = await page.textContent('body');
-
-      // Look for pattern: "1 USD = 83.xx INR" or "83.xx INR per USD"
-      const patterns = [
-        new RegExp(`1\\s*${from}\\s*=\\s*([\\d,]+\\.?\\d*)\\s*${to}`, 'i'),
-        new RegExp(`([\\d,]+\\.?\\d*)\\s*${to}\\s*per\\s*${from}`, 'i'),
-        new RegExp(`([\\d,]+\\.?\\d*)\\s*${to}`, 'i'),
-      ];
-
-      for (const pattern of patterns) {
-        const match = bodyText.match(pattern);
-        if (match) {
-          const num = parseFloat(match[1].replace(/,/g, ''));
-          // Validate: rate must be in a plausible range for this corridor
-          if (isPlausible(num, from, to)) { rate = num; break; }
-        }
+    // Fallback: text scan with plausibility check
+    const bodyText = await page.textContent('body');
+    const patterns = [
+      new RegExp(`1\\s*${from}\\s*=\\s*([\\d,]+\\.?\\d*)\\s*${to}`, 'i'),
+      new RegExp(`([\\d,]+\\.\\d{2})\\s*${to}`, 'i'),
+    ];
+    for (const p of patterns) {
+      const m = bodyText.match(p);
+      if (m) {
+        const n = parseFloat(m[1].replace(/,/g, ''));
+        if (isPlausible(n, from, to)) return n;
       }
     }
 
-    if (!rate) throw new Error('could not extract rate from page');
-    if (!isPlausible(rate, from, to)) throw new Error(`implausible rate: ${rate} for ${from}→${to}`);
-
-    return rate;
+    throw new Error('rate not found');
   } catch (e) {
     log(`  ✗ Remitly ${from}→${to}: ${e.message}`);
     return null;
   }
 }
 
-// ─── 7. XOOM — Headless ───────────────────────────────────────────────────
+// ─── 6. XOOM — Playwright, improved wait ──────────────────────────────────
 async function fetchXoom(from, to, page) {
   try {
     const destMap = {
-      INR: 'india', MXN: 'mexico', PHP: 'philippines',
-      PKR: 'pakistan', BDT: 'bangladesh',
+      INR:'india', MXN:'mexico', PHP:'philippines', PKR:'pakistan', BDT:'bangladesh',
     };
     const dest = destMap[to];
-    if (!dest) return null;
+    if (!dest) throw new Error(`No dest for ${to}`);
 
-    const url = `https://www.xoom.com/send-money-to-${dest}?fromCurrency=${from}&toCurrency=${to}`;
-
+    // Xoom send page — more reliable than the landing page
+    const url = `https://www.xoom.com/send-money-to-${dest}`;
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 });
-    await sleep(3000);
+
+    // Wait for rate widget (Xoom uses React)
+    try {
+      await page.waitForSelector('[class*="rate"], [class*="Rate"], [class*="exchange"]', {
+        timeout: 8000
+      });
+    } catch {
+      await sleep(5000);
+    }
 
     const bodyText = await page.textContent('body');
 
     const patterns = [
-      new RegExp(`1\\s*${from}\\s*=\\s*([\\d,]+\\.?\\d*)\\s*${to}`, 'i'),
-      new RegExp(`([\\d,]+\\.?\\d*)\\s*${to}\\s*per\\s*1?\\s*${from}`, 'i'),
+      new RegExp(`1\\s*${from}\\s*=\\s*([\\d,]+\\.?\\d+)\\s*${to}`, 'i'),
+      new RegExp(`([\\d,]+\\.\\d{2})\\s*${to}\\s*per\\s*${from}`, 'i'),
+      new RegExp(`${to}\\s*([\\d,]+\\.\\d{2})`, 'i'),
     ];
 
     for (const p of patterns) {
       const m = bodyText.match(p);
       if (m) {
-        const num = parseFloat(m[1].replace(/,/g, ''));
-        if (isPlausible(num, from, to)) return num;
+        const n = parseFloat(m[1].replace(/,/g, ''));
+        if (isPlausible(n, from, to)) return n;
       }
     }
 
@@ -343,28 +344,34 @@ async function fetchXoom(from, to, page) {
   }
 }
 
-// ─── 8. RIA — Headless ────────────────────────────────────────────────────
+// ─── 7. RIA — Playwright, improved ───────────────────────────────────────
 async function fetchRia(from, to, page) {
   try {
-    const url = `https://www.riamoneytransfer.com/en-us/send-money?fromCurrency=${from}&toCurrency=${to}`;
-
+    // Use Ria's send page with currency parameters
+    const url = `https://www.riamoneytransfer.com/en-us/send-money?fromCurrency=${from}&toCurrency=${to}&sendAmount=500`;
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 });
-    await sleep(3000);
 
-    // Try their API endpoint directly — Ria loads rates via XHR
-    // Intercept or read from page state
+    // Wait for their calculator to load
+    try {
+      await page.waitForSelector('[class*="exchange"], [class*="rate"], [data-testid*="rate"]', {
+        timeout: 8000
+      });
+    } catch {
+      await sleep(5000);
+    }
+
     const bodyText = await page.textContent('body');
 
     const patterns = [
-      new RegExp(`1\\s*${from}\\s*=\\s*([\\d,]+\\.?\\d*)\\s*${to}`, 'i'),
-      new RegExp(`([\\d,]+\\.?\\d*)\\s*${to}`, 'i'),
+      new RegExp(`1\\s*${from}\\s*=\\s*([\\d,]+\\.?\\d+)\\s*${to}`, 'i'),
+      new RegExp(`([\\d,]+\\.\\d{2})\\s*${to}`, 'i'),
     ];
 
     for (const p of patterns) {
       const m = bodyText.match(p);
       if (m) {
-        const num = parseFloat(m[1].replace(/,/g, ''));
-        if (isPlausible(num, from, to)) return num;
+        const n = parseFloat(m[1].replace(/,/g, ''));
+        if (isPlausible(n, from, to)) return n;
       }
     }
 
@@ -375,59 +382,42 @@ async function fetchRia(from, to, page) {
   }
 }
 
-// ─── PLAUSIBILITY CHECK ───────────────────────────────────────────────────
-// Prevents obviously wrong rates (like Remitly's 93.88 for MXN) from being saved
-// These are rough sanity ranges — update if markets move dramatically
-const PLAUSIBLE_RANGES = {
-  USD_INR: [75, 100],   USD_MXN: [15, 25],    USD_PHP: [50, 65],
-  USD_PKR: [240, 320],  USD_BDT: [100, 130],  USD_NGN: [1400, 1800],
-  GBP_INR: [95, 135],   EUR_INR: [85, 115],
-  CAD_INR: [55, 80],    AUD_INR: [50, 75],
-};
-
-function isPlausible(rate, from, to) {
-  if (!rate || isNaN(rate)) return false;
-  const range = PLAUSIBLE_RANGES[`${from}_${to}`];
-  if (!range) return rate > 0; // unknown corridor — just check positive
-  return rate >= range[0] && rate <= range[1];
-}
-
-// ─── MAIN ──────────────────────────────────────────────────────────────────
+// ─── MAIN ─────────────────────────────────────────────────────────────────
 async function main() {
-  log('RemitRadar rate fetcher v2 starting...');
-  log(TEST_MODE ? 'TEST MODE — Frankfurter + SBI only' : 'FULL MODE — all providers');
-  log(WISE_API_KEY ? 'Wise API key found' : 'No Wise API key — using Frankfurter for Wise rate');
+  log('RemitRadar rate fetcher v3 starting...');
+  log(TEST_MODE ? 'TEST MODE — Wise + SBI only' : 'FULL MODE — all providers');
 
   const existing = loadExisting();
-  const output   = {
+  const output = {
     lastRun: new Date().toISOString(),
     date: today(),
-    corridors: { ...existing.corridors },
+    corridors: JSON.parse(JSON.stringify(existing.corridors || {})),
   };
 
-  // Launch Playwright for headless scraping
   let browser = null, page = null;
   if (!TEST_MODE) {
     log('Launching headless browser...');
     browser = await chromium.launch({
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled'],
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-blink-features=AutomationControlled',
+      ],
     });
     page = await browser.newPage();
     await page.setExtraHTTPHeaders({ 'Accept-Language': 'en-US,en;q=0.9' });
-    // Mask automation signals
     await page.addInitScript(() => {
       Object.defineProperty(navigator, 'webdriver', { get: () => false });
     });
   }
 
-  // ─── Process each corridor ───────────────────────────────────────────
   for (const { from, to } of CORRIDORS) {
     const key = `${from}_${to}`;
     log(`\nProcessing ${from} → ${to}`);
     if (!output.corridors[key]) output.corridors[key] = {};
 
-    // 1. Wise / Frankfurter
+    // 1. Wise / ECB
     log(`  Fetching Wise...`);
     const wiseRate = await fetchWise(from, to);
     if (wiseRate && isPlausible(wiseRate, from, to)) {
@@ -435,12 +425,11 @@ async function main() {
         rate: wiseRate,
         updated: today(),
         source: WISE_API_KEY ? 'api' : 'ecb-proxy',
-        note: WISE_API_KEY ? null : 'ECB mid-market ≈ Wise rate',
       };
       log(`  ✓ Wise: ${wiseRate}`);
     }
 
-    // 2. SBI (INR corridors only)
+    // 2. SBI (INR only)
     if (to === 'INR') {
       log(`  Fetching SBI...`);
       const sbiRate = await fetchSBI(from);
@@ -450,18 +439,20 @@ async function main() {
       }
     }
 
-    if (TEST_MODE) continue; // stop here in test mode
+    if (TEST_MODE) continue;
 
-    // 3. WU (JSON endpoint — no headless needed)
-    log(`  Fetching Western Union...`);
-    const wuRate = await fetchWU(from, to);
-    if (wuRate && isPlausible(wuRate, from, to)) {
-      output.corridors[key].wu = { rate: wuRate, updated: today(), source: 'json' };
-      log(`  ✓ WU: ${wuRate}`);
+    // 3. WU
+    if (page) {
+      log(`  Fetching Western Union...`);
+      const wuRate = await fetchWU(from, to, page);
+      if (wuRate && isPlausible(wuRate, from, to)) {
+        output.corridors[key].wu = { rate: wuRate, updated: today(), source: 'scrape' };
+        log(`  ✓ WU: ${wuRate}`);
+      }
+      await sleep(2000);
     }
-    await sleep(1500);
 
-    // 4. ICICI (INR corridors only, uses headless)
+    // 4. ICICI (INR only)
     if (to === 'INR' && page) {
       log(`  Fetching ICICI...`);
       const iciciRate = await fetchICICI(from, page);
@@ -469,7 +460,7 @@ async function main() {
         output.corridors[key].icici = { rate: iciciRate, updated: today(), source: 'scrape' };
         log(`  ✓ ICICI: ${iciciRate}`);
       }
-      await sleep(1500);
+      await sleep(2000);
     }
 
     // 5. Remitly
@@ -508,15 +499,13 @@ async function main() {
 
   if (browser) { await browser.close(); log('\nBrowser closed.'); }
 
-  // Write output
   writeFileSync(OUTPUT_PATH, JSON.stringify(output, null, 2));
   log(`\n✅ Done! Written to ${OUTPUT_PATH}`);
 
-  // Summary
-  log('\n── Summary ────────────────────────────────────────');
+  log('\n── Summary ─────────────────────────────────────────');
   for (const { from, to } of CORRIDORS) {
-    const key       = `${from}_${to}`;
-    const corridor  = output.corridors[key] || {};
+    const key = `${from}_${to}`;
+    const corridor = output.corridors[key] || {};
     const providers = Object.entries(corridor)
       .map(([p, d]) => `${p}:${d.rate}`)
       .join(' | ');
