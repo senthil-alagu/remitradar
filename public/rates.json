@@ -1,0 +1,73 @@
+{
+  "lastRun": "2025-04-01T08:00:00.000Z",
+  "date": "2025-04-01",
+  "_note": "This file is auto-updated daily by GitHub Actions. Do not edit manually.",
+  "corridors": {
+    "USD_INR": {
+      "wise":    { "rate": 84.12, "updated": "2025-04-01", "source": "api" },
+      "remitly": { "rate": 83.80, "updated": "2025-04-01", "source": "scrape" },
+      "xoom":    { "rate": 83.45, "updated": "2025-04-01", "source": "scrape" },
+      "ria":     { "rate": 83.60, "updated": "2025-04-01", "source": "scrape" },
+      "wu":      { "rate": 83.10, "updated": "2025-04-01", "source": "scrape" },
+      "icici":   { "rate": 82.90, "updated": "2025-04-01", "source": "scrape" },
+      "sbi":     { "rate": 82.75, "updated": "2025-04-01", "source": "scrape" }
+    },
+    "USD_MXN": {
+      "wise":    { "rate": 18.24, "updated": "2025-04-01", "source": "api" },
+      "remitly": { "rate": 17.82, "updated": "2025-04-01", "source": "scrape" },
+      "xoom":    { "rate": 17.70, "updated": "2025-04-01", "source": "scrape" },
+      "ria":     { "rate": 17.75, "updated": "2025-04-01", "source": "scrape" },
+      "wu":      { "rate": 17.60, "updated": "2025-04-01", "source": "scrape" }
+    },
+    "USD_PHP": {
+      "wise":    { "rate": 56.42, "updated": "2025-04-01", "source": "api" },
+      "remitly": { "rate": 55.90, "updated": "2025-04-01", "source": "scrape" },
+      "xoom":    { "rate": 55.60, "updated": "2025-04-01", "source": "scrape" },
+      "ria":     { "rate": 55.70, "updated": "2025-04-01", "source": "scrape" },
+      "wu":      { "rate": 55.30, "updated": "2025-04-01", "source": "scrape" }
+    },
+    "USD_PKR": {
+      "wise":    { "rate": 280.20, "updated": "2025-04-01", "source": "api" },
+      "remitly": { "rate": 278.50, "updated": "2025-04-01", "source": "scrape" },
+      "xoom":    { "rate": 277.80, "updated": "2025-04-01", "source": "scrape" },
+      "ria":     { "rate": 278.00, "updated": "2025-04-01", "source": "scrape" },
+      "wu":      { "rate": 276.90, "updated": "2025-04-01", "source": "scrape" }
+    },
+    "GBP_INR": {
+      "wise":    { "rate": 107.85, "updated": "2025-04-01", "source": "api" },
+      "remitly": { "rate": 106.20, "updated": "2025-04-01", "source": "scrape" },
+      "xoom":    { "rate": 105.80, "updated": "2025-04-01", "source": "scrape" },
+      "ria":     { "rate": 106.00, "updated": "2025-04-01", "source": "scrape" },
+      "wu":      { "rate": 105.40, "updated": "2025-04-01", "source": "scrape" },
+      "icici":   { "rate": 105.10, "updated": "2025-04-01", "source": "scrape" },
+      "sbi":     { "rate": 104.90, "updated": "2025-04-01", "source": "scrape" }
+    },
+    "EUR_INR": {
+      "wise":    { "rate": 91.20, "updated": "2025-04-01", "source": "api" },
+      "remitly": { "rate": 90.30, "updated": "2025-04-01", "source": "scrape" },
+      "xoom":    { "rate": 89.90, "updated": "2025-04-01", "source": "scrape" },
+      "ria":     { "rate": 90.10, "updated": "2025-04-01", "source": "scrape" },
+      "wu":      { "rate": 89.60, "updated": "2025-04-01", "source": "scrape" },
+      "icici":   { "rate": 89.30, "updated": "2025-04-01", "source": "scrape" },
+      "sbi":     { "rate": 89.10, "updated": "2025-04-01", "source": "scrape" }
+    },
+    "CAD_INR": {
+      "wise":    { "rate": 61.45, "updated": "2025-04-01", "source": "api" },
+      "remitly": { "rate": 60.80, "updated": "2025-04-01", "source": "scrape" },
+      "xoom":    { "rate": 60.50, "updated": "2025-04-01", "source": "scrape" },
+      "ria":     { "rate": 60.65, "updated": "2025-04-01", "source": "scrape" },
+      "wu":      { "rate": 60.20, "updated": "2025-04-01", "source": "scrape" },
+      "icici":   { "rate": 60.00, "updated": "2025-04-01", "source": "scrape" },
+      "sbi":     { "rate": 59.85, "updated": "2025-04-01", "source": "scrape" }
+    },
+    "AUD_INR": {
+      "wise":    { "rate": 53.80, "updated": "2025-04-01", "source": "api" },
+      "remitly": { "rate": 53.20, "updated": "2025-04-01", "source": "scrape" },
+      "xoom":    { "rate": 52.90, "updated": "2025-04-01", "source": "scrape" },
+      "ria":     { "rate": 53.05, "updated": "2025-04-01", "source": "scrape" },
+      "wu":      { "rate": 52.70, "updated": "2025-04-01", "source": "scrape" },
+      "icici":   { "rate": 52.45, "updated": "2025-04-01", "source": "scrape" },
+      "sbi":     { "rate": 52.30, "updated": "2025-04-01", "source": "scrape" }
+    }
+  }
+}
