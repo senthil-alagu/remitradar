@@ -1,5 +1,5 @@
 {
-  "lastRun": "2026-04-01T14:45:20.991Z",
+  "lastRun": "2026-04-01T14:57:45.523Z",
   "date": "2026-04-01",
   "corridors": {
     "USD_INR": {
@@ -9,7 +9,7 @@
         "source": "ecb-proxy"
       },
       "remitly": {
-        "rate": 93.8,
+        "rate": 93.94,
         "updated": "2026-04-01",
         "source": "scrape"
       },
@@ -127,7 +127,7 @@
         "source": "ecb-proxy"
       },
       "remitly": {
-        "rate": 125.47,
+        "rate": 125.46,
         "updated": "2026-04-01",
         "source": "scrape"
       },
@@ -159,7 +159,7 @@
     },
     "EUR_INR": {
       "wise": {
-        "rate": 107.88,
+        "rate": 108.42,
         "updated": "2026-04-01",
         "source": "ecb-proxy"
       },
@@ -184,7 +184,7 @@
         "source": "scrape"
       },
       "icici": {
-        "rate": 108.6189,
+        "rate": 108.6844,
         "updated": "2026-04-01",
         "source": "scrape"
       },
@@ -196,12 +196,12 @@
     },
     "CAD_INR": {
       "wise": {
-        "rate": 67.332,
+        "rate": 67.241,
         "updated": "2026-04-01",
         "source": "ecb-proxy"
       },
       "remitly": {
-        "rate": 68.17,
+        "rate": 68.11,
         "updated": "2026-04-01",
         "source": "scrape"
       },
@@ -233,7 +233,7 @@
     },
     "AUD_INR": {
       "wise": {
-        "rate": 64.626,
+        "rate": 64.965,
         "updated": "2026-04-01",
         "source": "ecb-proxy"
       },
