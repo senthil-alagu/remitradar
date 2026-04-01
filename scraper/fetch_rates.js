@@ -1,18 +1,19 @@
 /**
- * RemitRadar — Rate Fetcher v6
+ * RemitRadar — Rate Fetcher v7
  * ─────────────────────────────
- * Fixes from v5:
- *   SBI:   Add retry (3 attempts) — sbi.bank.in intermittently blocks
- *   WU:    Only fetch for USD corridors — WU US site only supports USD send
- *          GBP/EUR/CAD/AUD→INR via WU needs their non-US site (skip for now)
- *   Ria:   Use send-money URL with explicit currency params instead of destination pages
- *   Data:  Clear stale seed values on each run — only keep data fetched today
+ * Fixes from v6:
+ *   Stale data:    Each run starts corridors completely empty — no old data carries forward
+ *                  Only successfully fetched rates appear in rates.json
+ *   PKR Wise:      ECB doesn't publish PKR — use open.er-api.com as fallback (free, no key)
+ *   Ria:           Use homepage riamoneytransfer.com/en-us/ (confirmed by user shows rate)
+ *   Remitly EUR:   Use remitly.com/us/en/india?sourceCurrency=EUR instead of /de/ domain
+ *   ICICI AUD:     money2india.com/au doesn't reliably show AUD — skip AUD for ICICI
  */
 
 import fetch from 'node-fetch';
 import { createRequire } from 'module';
 import { chromium } from 'playwright';
-import { writeFileSync, readFileSync, existsSync } from 'fs';
+import { writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -54,27 +55,18 @@ const today = () => new Date().toISOString().split('T')[0];
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const log   = msg => console.log(`[${new Date().toISOString()}] ${msg}`);
 
-// Retry wrapper — tries fn up to `attempts` times with a delay between
-async function withRetry(fn, attempts = 3, delayMs = 3000) {
+async function withRetry(fn, attempts = 3, delayMs = 4000) {
+  let lastErr;
   for (let i = 1; i <= attempts; i++) {
     try {
-      const result = await fn();
-      if (result !== null) return result;
+      const r = await fn();
+      if (r !== null && r !== undefined) return r;
     } catch (e) {
-      if (i === attempts) throw e;
-      log(`  Retry ${i}/${attempts - 1}...`);
-      await sleep(delayMs);
+      lastErr = e;
+      if (i < attempts) { log(`  Retry ${i}/${attempts}...`); await sleep(delayMs); }
     }
   }
-  return null;
-}
-
-function loadExisting() {
-  if (existsSync(OUTPUT_PATH)) {
-    try { return JSON.parse(readFileSync(OUTPUT_PATH, 'utf8')); }
-    catch { return { corridors: {} }; }
-  }
-  return { corridors: {} };
+  throw lastErr || new Error('all attempts returned null');
 }
 
 // ─── CONTEXT-AWARE RATE EXTRACTION ───────────────────────────────────────
@@ -82,14 +74,13 @@ function extractRateFromContext(text, from, to) {
   const range = PLAUSIBLE[`${from}_${to}`];
   if (!range) return null;
 
-  // Strategy 1: explicit "1 FROM = XX.XX TO" pattern
-  const explicitPatterns = [
+  // Strategy 1: explicit "1 FROM = XX.XX TO" or "FROM = XX.XX TO"
+  const explicit = [
     new RegExp(`1\\s*${from}\\s*[=:]\\s*([\\d,]+\\.\\d{2,4})\\s*${to}`, 'i'),
     new RegExp(`([\\d,]+\\.\\d{2,4})\\s*${to}\\s*per\\s*(?:1\\s*)?${from}`, 'i'),
     new RegExp(`${from}\\s*[=:]\\s*([\\d,]+\\.\\d{2,4})\\s*${to}`, 'i'),
   ];
-
-  for (const p of explicitPatterns) {
+  for (const p of explicit) {
     const m = text.match(p);
     if (m) {
       const n = parseFloat(m[1].replace(/,/g, ''));
@@ -97,22 +88,16 @@ function extractRateFromContext(text, from, to) {
     }
   }
 
-  // Strategy 2: find rate near currency mention
+  // Strategy 2: number near currency mention
   const parts = text.split(new RegExp(`\\b${from}\\b`, 'gi'));
   for (let i = 0; i < parts.length - 1; i++) {
-    const after = parts[i + 1].slice(0, 80);
-    const nums = [...after.matchAll(/[\d,]+\.(\d{2,4})/g)]
-      .map(m => parseFloat(m[0].replace(/,/g, '')))
-      .filter(n => n >= range[0] && n <= range[1]);
-    if (nums.length > 0) return nums[0];
-
-    const before = parts[i].slice(-80);
-    const nums2 = [...before.matchAll(/[\d,]+\.(\d{2,4})/g)]
-      .map(m => parseFloat(m[0].replace(/,/g, '')))
-      .filter(n => n >= range[0] && n <= range[1]);
-    if (nums2.length > 0) return nums2[0];
+    for (const chunk of [parts[i + 1].slice(0, 80), parts[i].slice(-80)]) {
+      const nums = [...chunk.matchAll(/[\d,]+\.(\d{2,4})/g)]
+        .map(m => parseFloat(m[0].replace(/,/g, '')))
+        .filter(n => n >= range[0] && n <= range[1]);
+      if (nums.length > 0) return nums[0];
+    }
   }
-
   return null;
 }
 
@@ -127,49 +112,53 @@ async function waitForRate(page, from, to, maxWaitMs = 12000) {
   return null;
 }
 
-// ─── 1. WISE / FRANKFURTER ────────────────────────────────────────────────
+// ─── 1. WISE ─────────────────────────────────────────────────────────────
+// Primary: Wise API (if key set). Fallback: ECB Frankfurter.
+// PKR fallback: open.er-api.com (ECB doesn't publish PKR)
 async function fetchWise(from, to) {
   if (WISE_API_KEY) {
     try {
       const encoded = Buffer.from(`${WISE_API_KEY}:`).toString('base64');
-      const res = await fetch(
-        `https://api.transferwise.com/v1/rates?source=${from}&target=${to}`,
-        { headers: { Authorization: `Basic ${encoded}` } }
-      );
+      const res = await fetch(`https://api.transferwise.com/v1/rates?source=${from}&target=${to}`,
+        { headers: { Authorization: `Basic ${encoded}` } });
       if (res.ok) {
         const data = await res.json();
         if (data[0]?.rate) return parseFloat(data[0].rate);
       }
-    } catch (e) {
-      log(`  Wise API failed: ${e.message}`);
-    }
+    } catch (e) { log(`  Wise API failed: ${e.message}`); }
   }
+
+  // ECB Frankfurter
   try {
     const res = await fetch(`https://api.frankfurter.app/latest?from=${from}&to=${to}`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    if (!data.rates[to]) throw new Error('pair not in ECB');
-    return parseFloat(data.rates[to]);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.rates?.[to]) return parseFloat(data.rates[to]);
+    }
+  } catch { /* fall through */ }
+
+  // Fallback for PKR and other pairs ECB doesn't cover:
+  // open.er-api.com — free, no key, covers 170 currencies
+  try {
+    const res = await fetch(`https://open.er-api.com/v6/latest/${from}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.rates?.[to]) return parseFloat(data.rates[to]);
+    }
   } catch (e) {
-    log(`  ✗ Frankfurter: ${e.message}`);
-    return null;
+    log(`  ✗ open.er-api fallback: ${e.message}`);
   }
+
+  return null;
 }
 
-// ─── 2. SBI — Daily PDF with retry ───────────────────────────────────────
+// ─── 2. SBI ───────────────────────────────────────────────────────────────
 async function fetchSBI(from) {
   return withRetry(async () => {
-    const res = await fetch(
-      'https://sbi.bank.in/documents/16012/1400784/FOREX_CARD_RATES.pdf',
-      {
-        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-        timeout: 15000,
-      }
-    );
+    const res = await fetch('https://sbi.bank.in/documents/16012/1400784/FOREX_CARD_RATES.pdf',
+      { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' } });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const parsed = await pdfParse(Buffer.from(await res.arrayBuffer()), { verbosity: 0 });
-    const text   = parsed.text;
-
     const patterns = {
       USD: /UNITED STATES DOLLAR\s+USD\/INR\s+([\d.]+)/,
       GBP: /GREAT BRITAIN POUND\s+GBP\/INR\s+([\d.]+)/,
@@ -177,32 +166,29 @@ async function fetchSBI(from) {
       CAD: /CANADIAN DOLLAR\s+CAD\/INR\s+([\d.]+)/,
       AUD: /AUSTRALIAN DOLLAR\s+AUD\/INR\s+([\d.]+)/,
     };
-
-    const match = text.match(patterns[from]);
-    if (!match) throw new Error(`${from} not found in PDF`);
+    const match = parsed.text.match(patterns[from]);
+    if (!match) throw new Error(`${from} not in PDF`);
     const rate = parseFloat(match[1]);
-    if (!isPlausible(rate, from, 'INR')) throw new Error(`Implausible rate: ${rate}`);
+    if (!isPlausible(rate, from, 'INR')) throw new Error(`implausible: ${rate}`);
     return rate;
-  }, 3, 5000).catch(e => {
-    log(`  ✗ SBI: ${e.message}`);
-    return null;
-  });
+  }, 3, 5000).catch(e => { log(`  ✗ SBI: ${e.message}`); return null; });
 }
 
 // ─── 3. ICICI (Money2India) ───────────────────────────────────────────────
+// money2india.com only has US, UK, EU, CA pages with live rates
+// AU page doesn't reliably show AUD rate — skip it
 async function fetchICICI(from, to, page) {
+  const urlMap = {
+    USD: 'https://www.money2india.com/us',
+    GBP: 'https://www.money2india.com/uk',
+    EUR: 'https://www.money2india.com/eu',
+    CAD: 'https://www.money2india.com/ca',
+    // AUD skipped — money2india.com/au doesn't reliably load AUD rate
+  };
+  const url = urlMap[from];
+  if (!url) { log(`  ↷ ICICI skipped for ${from}`); return null; }
+
   try {
-    const urlMap = {
-      USD: 'https://www.money2india.com/us',
-      GBP: 'https://www.money2india.com/uk',
-      EUR: 'https://www.money2india.com/eu',
-      CAD: 'https://www.money2india.com/ca',
-      AUD: 'https://www.money2india.com/au',
-    };
-
-    const url = urlMap[from];
-    if (!url) throw new Error(`Money2India does not support ${from}`);
-
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
     const rate = await waitForRate(page, from, to, 12000);
     if (!rate) throw new Error('rate not found after 12s');
@@ -214,14 +200,9 @@ async function fetchICICI(from, to, page) {
 }
 
 // ─── 4. WESTERN UNION ─────────────────────────────────────────────────────
-// WU US site only reliably supports USD as the send currency.
-// For non-USD corridors, skip rather than return wrong cached value.
+// WU US site only supports USD send
 async function fetchWU(from, to, page) {
-  // WU US site only supports USD send — skip other currencies
-  if (from !== 'USD') {
-    log(`  ↷ WU skipped for ${from} (US site only supports USD send)`);
-    return null;
-  }
+  if (from !== 'USD') { log(`  ↷ WU skipped for ${from}`); return null; }
   try {
     const url = `https://www.westernunion.com/us/en/currency-converter/${from.toLowerCase()}-to-${to.toLowerCase()}-rate.html`;
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
@@ -235,22 +216,15 @@ async function fetchWU(from, to, page) {
 }
 
 // ─── 5. REMITLY ───────────────────────────────────────────────────────────
+// Always use US base URL with sourceCurrency param — more reliable than country-specific domains
 async function fetchRemitly(from, to, page) {
+  const destMap = { INR:'india', MXN:'mexico', PHP:'philippines', PKR:'pakistan', BDT:'bangladesh' };
+  const dest = destMap[to];
+  if (!dest) { log(`  ↷ Remitly skipped for ${to}`); return null; }
+
   try {
-    const destMap = {
-      INR:'india', MXN:'mexico', PHP:'philippines',
-      PKR:'pakistan', BDT:'bangladesh', NGN:'nigeria',
-    };
-    const dest = destMap[to];
-    if (!dest) throw new Error(`no dest for ${to}`);
-
-    const fromCountryMap = {
-      USD: 'us', GBP: 'gb', EUR: 'de',
-      CAD: 'ca', AUD: 'au',
-    };
-    const fromCountry = fromCountryMap[from] || 'us';
-
-    const url = `https://www.remitly.com/${fromCountry}/en/${dest}?anchor=calculator&sourceCurrency=${from}&destinationCurrency=${to}`;
+    // Use US domain with sourceCurrency param — works for all send currencies
+    const url = `https://www.remitly.com/us/en/${dest}?anchor=calculator&sourceCurrency=${from}&destinationCurrency=${to}`;
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 });
     const rate = await waitForRate(page, from, to, 12000);
     if (!rate) throw new Error('rate not found');
@@ -263,11 +237,11 @@ async function fetchRemitly(from, to, page) {
 
 // ─── 6. XOOM ─────────────────────────────────────────────────────────────
 async function fetchXoom(from, to, page) {
-  try {
-    const countryMap = { INR:'IN', MXN:'MX', PHP:'PH', PKR:'PK', BDT:'BD' };
-    const cc = countryMap[to];
-    if (!cc) throw new Error(`no country for ${to}`);
+  const countryMap = { INR:'IN', MXN:'MX', PHP:'PH', PKR:'PK', BDT:'BD' };
+  const cc = countryMap[to];
+  if (!cc) { log(`  ↷ Xoom skipped for ${to}`); return null; }
 
+  try {
     const url = `https://www.xoom.com/en-us/${from.toLowerCase()}/send-money/transfer?countryCode=${cc}`;
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 });
     const rate = await waitForRate(page, from, to, 12000);
@@ -280,25 +254,45 @@ async function fetchXoom(from, to, page) {
 }
 
 // ─── 7. RIA ───────────────────────────────────────────────────────────────
-// Use their send page with fromCurrency and toCurrency params
-// Ria's dedicated destination pages don't show the rate without interaction
+// User confirmed: rate shows on homepage riamoneytransfer.com/en-us/
+// Only USD rates show on their homepage — skip non-USD
 async function fetchRia(from, to, page) {
-  // Ria homepage only shows USD rates — skip non-USD for now
-  if (from !== 'USD') {
-    log(`  ↷ Ria skipped for ${from} (homepage only shows USD)`);
-    return null;
-  }
-  try {
-    // Ria send page with explicit USD source — shows rate in calculator
-    const destMap = { INR:'IN', MXN:'MX', PHP:'PH', PKR:'PK' };
-    const destCode = destMap[to];
-    if (!destCode) throw new Error(`no dest for ${to}`);
+  if (from !== 'USD') { log(`  ↷ Ria skipped for ${from}`); return null; }
 
-    // Use their send money page which pre-selects the corridor
-    const url = `https://www.riamoneytransfer.com/en-us/send-money?sendFrom=US&sendTo=${destCode}&fromCurrency=USD&toCurrency=${to}`;
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 });
-    const rate = await waitForRate(page, from, to, 12000);
-    if (!rate) throw new Error('rate not found');
+  try {
+    // Homepage shows the USD rate widget — wait for it to render
+    await page.goto('https://www.riamoneytransfer.com/en-us/', {
+      waitUntil: 'domcontentloaded', timeout: 25000
+    });
+
+    // Ria's homepage calculator may need the destination selected
+    // Try waiting for rate to appear naturally first
+    let rate = await waitForRate(page, from, to, 8000);
+    if (rate) return rate;
+
+    // If not found, try clicking/selecting the destination country
+    // Ria uses a dropdown to select destination — try to set it
+    try {
+      // Look for a country selector and set it
+      const selectors = [
+        'select[name*="country"]',
+        'select[id*="country"]',
+        '[class*="country"] select',
+        '[placeholder*="country"]',
+      ];
+      for (const sel of selectors) {
+        const el = await page.$(sel);
+        if (el) {
+          const destMap = { INR:'India', MXN:'Mexico', PHP:'Philippines', PKR:'Pakistan' };
+          await el.selectOption({ label: destMap[to] }).catch(() => {});
+          await sleep(2000);
+          break;
+        }
+      }
+    } catch { /* ignore selector errors */ }
+
+    rate = await waitForRate(page, from, to, 8000);
+    if (!rate) throw new Error('rate not found on homepage');
     return rate;
   } catch (e) {
     log(`  ✗ Ria: ${e.message}`);
@@ -308,30 +302,21 @@ async function fetchRia(from, to, page) {
 
 // ─── MAIN ─────────────────────────────────────────────────────────────────
 async function main() {
-  log('RemitRadar rate fetcher v6 starting...');
+  log('RemitRadar rate fetcher v7 starting...');
   log(TEST_MODE ? 'TEST MODE — Wise + SBI only' : 'FULL MODE — all providers');
 
-  const existing = loadExisting();
-
-  // Start fresh for today — don't carry forward stale seed data
-  // Only keep rates that were fetched on a previous real run (have a real source)
-  const cleanedCorridors = {};
-  for (const [key, providers] of Object.entries(existing.corridors || {})) {
-    cleanedCorridors[key] = {};
-    for (const [pid, data] of Object.entries(providers)) {
-      // Keep data from previous runs (not seed data which has no updated date)
-      // Seed data has made-up dates; real scraped data has today or recent date
-      if (data.updated && data.source) {
-        cleanedCorridors[key][pid] = data;
-      }
-    }
-  }
-
+  // Start completely fresh — no stale data carries forward
+  // Each corridor is empty; only successfully fetched rates today get saved
   const output = {
     lastRun: new Date().toISOString(),
     date: today(),
-    corridors: cleanedCorridors,
+    corridors: {},
   };
+
+  // Pre-populate empty objects for each corridor
+  for (const { from, to } of CORRIDORS) {
+    output.corridors[`${from}_${to}`] = {};
+  }
 
   let browser = null, page = null;
   if (!TEST_MODE) {
@@ -355,80 +340,61 @@ async function main() {
   for (const { from, to } of CORRIDORS) {
     const key = `${from}_${to}`;
     log(`\nProcessing ${from} → ${to}`);
-    if (!output.corridors[key]) output.corridors[key] = {};
 
-    // 1. Wise / ECB
+    // Helper to save a rate
+    const save = (provider, rate, source) => {
+      if (rate && isPlausible(rate, from, to)) {
+        output.corridors[key][provider] = { rate, updated: today(), source };
+        log(`  ✓ ${provider}: ${rate}`);
+        return true;
+      }
+      return false;
+    };
+
+    // 1. Wise / ECB / open.er-api fallback
     log(`  Fetching Wise...`);
-    const wiseRate = await fetchWise(from, to);
-    if (wiseRate && isPlausible(wiseRate, from, to)) {
-      output.corridors[key].wise = { rate: wiseRate, updated: today(), source: WISE_API_KEY ? 'api' : 'ecb-proxy' };
-      log(`  ✓ Wise: ${wiseRate}`);
-    }
+    save('wise', await fetchWise(from, to), WISE_API_KEY ? 'api' : 'ecb-proxy');
 
     // 2. SBI (INR only)
     if (to === 'INR') {
       log(`  Fetching SBI...`);
-      const sbiRate = await fetchSBI(from);
-      if (sbiRate) {
-        output.corridors[key].sbi = { rate: sbiRate, updated: today(), source: 'pdf' };
-        log(`  ✓ SBI: ${sbiRate}`);
-      }
+      save('sbi', await fetchSBI(from), 'pdf');
     }
 
     if (TEST_MODE) continue;
 
-    // 3. ICICI (INR only)
+    // 3. ICICI (INR only, USD/GBP/EUR/CAD supported)
     if (to === 'INR' && page) {
       log(`  Fetching ICICI (Money2India)...`);
-      const iciciRate = await fetchICICI(from, to, page);
-      if (iciciRate) {
-        output.corridors[key].icici = { rate: iciciRate, updated: today(), source: 'scrape' };
-        log(`  ✓ ICICI: ${iciciRate}`);
-      }
+      save('icici', await fetchICICI(from, to, page), 'scrape');
       await sleep(2000);
     }
 
-    // 4. WU (USD only on US site)
+    // 4. WU (USD only)
     if (page) {
       log(`  Fetching Western Union...`);
-      const wuRate = await fetchWU(from, to, page);
-      if (wuRate) {
-        output.corridors[key].wu = { rate: wuRate, updated: today(), source: 'scrape' };
-        log(`  ✓ WU: ${wuRate}`);
-      }
+      save('wu', await fetchWU(from, to, page), 'scrape');
       await sleep(2000);
     }
 
     // 5. Remitly
     if (page) {
       log(`  Fetching Remitly...`);
-      const remitlyRate = await fetchRemitly(from, to, page);
-      if (remitlyRate) {
-        output.corridors[key].remitly = { rate: remitlyRate, updated: today(), source: 'scrape' };
-        log(`  ✓ Remitly: ${remitlyRate}`);
-      }
+      save('remitly', await fetchRemitly(from, to, page), 'scrape');
       await sleep(2000);
     }
 
     // 6. Xoom
     if (page) {
       log(`  Fetching Xoom...`);
-      const xoomRate = await fetchXoom(from, to, page);
-      if (xoomRate) {
-        output.corridors[key].xoom = { rate: xoomRate, updated: today(), source: 'scrape' };
-        log(`  ✓ Xoom: ${xoomRate}`);
-      }
+      save('xoom', await fetchXoom(from, to, page), 'scrape');
       await sleep(2000);
     }
 
     // 7. Ria (USD only)
     if (page) {
       log(`  Fetching Ria...`);
-      const riaRate = await fetchRia(from, to, page);
-      if (riaRate) {
-        output.corridors[key].ria = { rate: riaRate, updated: today(), source: 'scrape' };
-        log(`  ✓ Ria: ${riaRate}`);
-      }
+      save('ria', await fetchRia(from, to, page), 'scrape');
       await sleep(2000);
     }
   }
@@ -442,8 +408,9 @@ async function main() {
   for (const { from, to } of CORRIDORS) {
     const key = `${from}_${to}`;
     const c = output.corridors[key] || {};
+    const count = Object.keys(c).length;
     const providers = Object.entries(c).map(([p,d]) => `${p}:${d.rate}`).join(' | ');
-    log(`  ${from}→${to}: ${providers || 'no data'}`);
+    log(`  ${from}→${to} [${count} providers]: ${providers || 'NO DATA'}`);
   }
 }
 
