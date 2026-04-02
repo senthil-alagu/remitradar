@@ -253,83 +253,11 @@ async function fetchXoom(from, to, page) {
   }
 }
 
-// ─── 7. RIA — Two-step API (session token + calculate) ───────────────────
-// Step 1: GET /Authorization/session → JWT token in response header "bearer"
-// Step 2: POST /MoneyTransferCalculator/Calculate with that JWT
-// Both are plain fetch() calls — no browser needed.
-// Supports all corridors by changing countryTo/currencyTo in the body.
-const RIA_DEST_MAP = {
-  INR: { countryTo: 'IN', currencyTo: 'INR' },
-  MXN: { countryTo: 'MX', currencyTo: 'MXN' },
-  PHP: { countryTo: 'PH', currencyTo: 'PHP' },
-  PKR: { countryTo: 'PK', currencyTo: 'PKR' },
-  BDT: { countryTo: 'BD', currencyTo: 'BDT' },
-  NGN: { countryTo: 'NG', currencyTo: 'NGN' },
-};
-
-const RIA_HEADERS = {
-  'Content-Type': 'application/json',
-  'Accept': '*/*',
-  'Origin': 'https://www.riamoneytransfer.com',
-  'Referer': 'https://www.riamoneytransfer.com/',
-  'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36',
-  'Client-Type': 'PublicSite',
-  'Appversion': '4.0',
-  'Culturecode': 'en-US',
-};
-
-async function fetchRia(from, to) {
-  const dest = RIA_DEST_MAP[to];
-  if (!dest) { log(`  ↷ Ria skipped for ${to}`); return null; }
-
-  try {
-    // Step 1: Get session JWT — token is in the response header "bearer"
-    const sessionRes = await fetch('https://public.riamoneytransfer.com/Authorization/session', {
-      method: 'GET',
-      headers: RIA_HEADERS,
-    });
-    if (!sessionRes.ok) throw new Error(`Session HTTP ${sessionRes.status}`);
-
-    // JWT comes back in the "bearer" response header (not the body)
-    const jwt = sessionRes.headers.get('bearer');
-    if (!jwt) throw new Error('No bearer token in session response');
-
-    // Step 2: Calculate rate using the JWT
-    const calcRes = await fetch('https://public.riamoneytransfer.com/MoneyTransferCalculator/Calculate', {
-      method: 'POST',
-      headers: {
-        ...RIA_HEADERS,
-        'Authorization': `Bearer ${jwt}`,
-      },
-      body: JSON.stringify({
-        countryFrom: 'US',
-        countryTo: dest.countryTo,
-        currencyFrom: from,
-        currencyTo: dest.currencyTo,
-        amountFrom: 1000,
-        paymentMethod: 'DebitCard',
-        deliveryMethod: 'BankDeposit',
-        promoId: 0,
-        shouldCalcAmountFrom: false,
-        shouldCalcVariableRates: true,
-        locale: 'en-us',
-      }),
-    });
-
-    if (!calcRes.ok) throw new Error(`Calculate HTTP ${calcRes.status}`);
-    const data = await calcRes.json();
-    const rate = data?.model?.transferDetails?.calculations?.exchangeRate;
-    if (!rate) throw new Error('exchangeRate not in response');
-
-    const parsed = parseFloat(rate);
-    if (!isPlausible(parsed, from, to)) throw new Error(`implausible rate: ${parsed}`);
-    return parsed;
-
-  } catch (e) {
-    log(`  ✗ Ria: ${e.message}`);
-    return null;
-  }
-}
+// ─── 7. RIA — Manual update ───────────────────────────────────────────────
+// Ria blocks automated requests from cloud IPs (GitHub Actions uses Azure).
+// Update Ria rates manually in rates.json once a day.
+// See: https://www.riamoneytransfer.com/en-us/
+// The fetchRia function is intentionally removed.
 
 // ─── MAIN ─────────────────────────────────────────────────────────────────
 async function main() {
@@ -422,10 +350,8 @@ async function main() {
       await sleep(2000);
     }
 
-    // 7. Ria (direct API — no browser needed)
-    log(`  Fetching Ria...`);
-    save('ria', await fetchRia(from, to), 'api');
-    await sleep(1000);
+    // 7. Ria — updated manually in rates.json (skipped in automation)
+    log(`  ↷ Ria: manual update — edit rates.json directly`);
   }
 
   if (browser) { await browser.close(); log('\nBrowser closed.'); }
