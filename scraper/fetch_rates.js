@@ -253,47 +253,57 @@ async function fetchXoom(from, to, page) {
   }
 }
 
-// ─── 7. RIA ───────────────────────────────────────────────────────────────
-// User confirmed: rate shows on homepage riamoneytransfer.com/en-us/
-// Only USD rates show on their homepage — skip non-USD
-async function fetchRia(from, to, page) {
-  if (from !== 'USD') { log(`  ↷ Ria skipped for ${from}`); return null; }
+// ─── 7. RIA — Direct API (no browser needed) ─────────────────────────────
+// User found the internal POST API via Network tab inspection:
+//   POST https://public.riamoneytransfer.com/MoneyTransferCalculator/Calculate
+// Response contains: model.transferDetails.calculations.exchangeRate
+// Supports any corridor — just change countryTo/currencyTo in the body.
+// No Playwright needed — plain fetch() call.
+const RIA_COUNTRY_MAP = {
+  INR: { countryTo: 'IN', currencyTo: 'INR' },
+  MXN: { countryTo: 'MX', currencyTo: 'MXN' },
+  PHP: { countryTo: 'PH', currencyTo: 'PHP' },
+  PKR: { countryTo: 'PK', currencyTo: 'PKR' },
+  BDT: { countryTo: 'BD', currencyTo: 'BDT' },
+  NGN: { countryTo: 'NG', currencyTo: 'NGN' },
+};
+
+async function fetchRia(from, to) {
+  const dest = RIA_COUNTRY_MAP[to];
+  if (!dest) { log(`  ↷ Ria skipped for ${to}`); return null; }
 
   try {
-    // Homepage shows the USD rate widget — wait for it to render
-    await page.goto('https://www.riamoneytransfer.com/en-us/', {
-      waitUntil: 'domcontentloaded', timeout: 25000
+    const res = await fetch('https://public.riamoneytransfer.com/MoneyTransferCalculator/Calculate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Origin': 'https://www.riamoneytransfer.com',
+        'Referer': 'https://www.riamoneytransfer.com/',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      },
+      body: JSON.stringify({
+        countryTo: dest.countryTo,
+        currencyTo: dest.currencyTo,
+        currencyFrom: from,
+        paymentMethod: 'BankAccount',
+        deliveryMethod: 'BankDeposit',
+        amountFrom: 1000,
+        shouldCalcAmountFrom: false,
+        shouldCalcVariableRates: false,
+        countryFrom: 'US',
+      }),
     });
 
-    // Ria's homepage calculator may need the destination selected
-    // Try waiting for rate to appear naturally first
-    let rate = await waitForRate(page, from, to, 8000);
-    if (rate) return rate;
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const rate = data?.model?.transferDetails?.calculations?.exchangeRate;
+    if (!rate) throw new Error('exchangeRate not in response');
 
-    // If not found, try clicking/selecting the destination country
-    // Ria uses a dropdown to select destination — try to set it
-    try {
-      // Look for a country selector and set it
-      const selectors = [
-        'select[name*="country"]',
-        'select[id*="country"]',
-        '[class*="country"] select',
-        '[placeholder*="country"]',
-      ];
-      for (const sel of selectors) {
-        const el = await page.$(sel);
-        if (el) {
-          const destMap = { INR:'India', MXN:'Mexico', PHP:'Philippines', PKR:'Pakistan' };
-          await el.selectOption({ label: destMap[to] }).catch(() => {});
-          await sleep(2000);
-          break;
-        }
-      }
-    } catch { /* ignore selector errors */ }
+    const parsed = parseFloat(rate);
+    if (!isPlausible(parsed, from, to)) throw new Error(`implausible rate: ${parsed}`);
+    return parsed;
 
-    rate = await waitForRate(page, from, to, 8000);
-    if (!rate) throw new Error('rate not found on homepage');
-    return rate;
   } catch (e) {
     log(`  ✗ Ria: ${e.message}`);
     return null;
@@ -391,12 +401,10 @@ async function main() {
       await sleep(2000);
     }
 
-    // 7. Ria (USD only)
-    if (page) {
-      log(`  Fetching Ria...`);
-      save('ria', await fetchRia(from, to, page), 'scrape');
-      await sleep(2000);
-    }
+    // 7. Ria (direct API — no browser needed)
+    log(`  Fetching Ria...`);
+    save('ria', await fetchRia(from, to), 'api');
+    await sleep(1000);
   }
 
   if (browser) { await browser.close(); log('\nBrowser closed.'); }
