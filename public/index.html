@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<base href="./">
 <title>RemitRadar — Best Exchange Rates Compared</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;500;600;700;800&family=Instrument+Sans:wght@400;500&display=swap" rel="stylesheet"/>
@@ -321,7 +322,7 @@ async function init() {
 
   // Load rates.json
   try {
-    const res = await fetch('rates.json');
+    const res = await fetch('./rates.json');
     if (!res.ok) throw new Error('rates.json not found');
     ratesData = await res.json();
   } catch (e) {
