@@ -130,7 +130,7 @@ async function fetchWise(from, to) {
 
   // ECB Frankfurter
   try {
-    const res = await fetch(`https://api.frankfurter.app/latest?from=${from}&to=${to}`);
+    const res = await fetch(`https://api.frankfurter.dev/latest?from=${from}&to=${to}`);
     if (res.ok) {
       const data = await res.json();
       if (data.rates?.[to]) return parseFloat(data.rates[to]);
