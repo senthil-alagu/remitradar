@@ -209,12 +209,12 @@ footer a { color:var(--accent); text-decoration:none; }
   <div class="selector">
     <div class="sel-group">
       <div class="sel-label">Sending from</div>
-      <select id="fromCur"></select>
+      <select id="fromCur" onchange="compare()"></select>
     </div>
     <div class="arrow">→</div>
     <div class="sel-group">
       <div class="sel-label">Receiving in</div>
-      <select id="toCur"></select>
+      <select id="toCur" onchange="compare()"></select>
     </div>
     <button class="go-btn-main" id="cmpBtn" onclick="compare()">See rates →</button>
   </div>
