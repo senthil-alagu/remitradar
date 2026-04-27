@@ -1,5 +1,5 @@
 {
-  "lastRun": "2026-04-27T17:29:07.280Z",
+  "lastRun": "2026-04-27T22:38:28.146Z",
   "date": "2026-04-27",
   "corridors": {
     "USD_INR": {
@@ -51,7 +51,7 @@
         "source": "scrape"
       },
       "xoom": {
-        "rate": 17.61,
+        "rate": 17.611,
         "updated": "2026-04-27",
         "source": "scrape"
       }
@@ -68,7 +68,7 @@
         "source": "scrape"
       },
       "remitly": {
-        "rate": 62.08,
+        "rate": 62.01,
         "updated": "2026-04-27",
         "source": "scrape"
       },
@@ -117,7 +117,7 @@
         "source": "scrape"
       },
       "xoom": {
-        "rate": 126.3431,
+        "rate": 126.166,
         "updated": "2026-04-27",
         "source": "scrape"
       }
@@ -134,7 +134,7 @@
         "source": "pdf"
       },
       "xoom": {
-        "rate": 109.2053,
+        "rate": 109.0123,
         "updated": "2026-04-27",
         "source": "scrape"
       }
@@ -156,7 +156,7 @@
         "source": "scrape"
       },
       "xoom": {
-        "rate": 68.2953,
+        "rate": 68.2113,
         "updated": "2026-04-27",
         "source": "scrape"
       }
@@ -173,7 +173,7 @@
         "source": "pdf"
       },
       "xoom": {
-        "rate": 68.2271,
+        "rate": 68.2223,
         "updated": "2026-04-27",
         "source": "scrape"
       }
