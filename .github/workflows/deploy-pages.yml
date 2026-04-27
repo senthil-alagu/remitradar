@@ -27,7 +27,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./pages   # <--- this is your folder
+          path: ./public   # <--- this is your folder
 
   deploy:
     runs-on: ubuntu-latest
