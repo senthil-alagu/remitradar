@@ -1,476 +1,928 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<base href="./">
-<title>RemitRadar — Best Exchange Rates Compared</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;500;600;700;800&family=Instrument+Sans:wght@400;500&display=swap" rel="stylesheet"/>
-<style>
-:root {
-  --bg:#f7f5f0; --surface:#ffffff; --surface2:#f0ede6;
-  --border:#e2e0d8; --border2:#ccc9be;
-  --ink:#1a1a18; --ink2:#5a5952; --ink3:#9a9890;
-  --accent:#1a6b3c; --accent-light:#e8f5ee; --accent-border:#b6dfc8;
-  --warn:#b45309; --warn-light:#fef3c7;
-  --danger:#dc2626; --danger-light:#fef2f2;
-  --fh:'Bricolage Grotesque',sans-serif;
-  --fb:'Instrument Sans',sans-serif;
-  --r:10px; --rs:6px;
-}
-*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
-body { background:var(--bg); color:var(--ink); font-family:var(--fb); font-size:15px; line-height:1.5; min-height:100vh; }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <base href="./">
+  <title>RemitRadar — Best Exchange Rates Compared</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;500;600;700;800&family=Instrument+Sans:wght@400;500&display=swap"
+    rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #f7f5f0;
+      --surface: #ffffff;
+      --surface2: #f0ede6;
+      --border: #e2e0d8;
+      --border2: #ccc9be;
+      --ink: #1a1a18;
+      --ink2: #5a5952;
+      --ink3: #9a9890;
+      --accent: #1a6b3c;
+      --accent-light: #e8f5ee;
+      --accent-border: #b6dfc8;
+      --warn: #b45309;
+      --warn-light: #fef3c7;
+      --danger: #dc2626;
+      --danger-light: #fef2f2;
+      --fh: 'Bricolage Grotesque', sans-serif;
+      --fb: 'Instrument Sans', sans-serif;
+      --r: 10px;
+      --rs: 6px;
+    }
 
-.wrap { max-width:800px; margin:0 auto; padding:0 20px; }
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
-/* NAV */
-nav { display:flex; align-items:center; justify-content:space-between; padding:18px 0; border-bottom:1px solid var(--border); }
-.logo { font-family:var(--fh); font-size:22px; font-weight:800; color:var(--ink); letter-spacing:-.5px; }
-.logo em { font-style:normal; color:var(--accent); }
-.live-pill {
-  display:inline-flex; align-items:center; gap:6px;
-  font-size:12px; color:var(--accent);
-  background:var(--accent-light); border:1px solid var(--accent-border);
-  padding:4px 10px; border-radius:20px;
-}
-.live-pill::before { content:''; width:6px; height:6px; background:var(--accent); border-radius:50%; animation:blink 2s infinite; }
-@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+    body {
+      background: var(--bg);
+      color: var(--ink);
+      font-family: var(--fb);
+      font-size: 15px;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
 
-/* HERO */
-.hero { padding:44px 0 32px; text-align:center; }
-.hero h1 { font-family:var(--fh); font-size:clamp(26px,5vw,44px); font-weight:800; line-height:1.1; letter-spacing:-.5px; margin-bottom:10px; }
-.hero h1 span { color:var(--accent); }
-.hero p { color:var(--ink2); max-width:400px; margin:0 auto; }
+    .wrap {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
 
-/* SELECTOR */
-.selector { background:var(--surface); border:1px solid var(--border); border-radius:var(--r); padding:20px; margin-bottom:24px; display:flex; align-items:flex-end; gap:12px; flex-wrap:wrap; }
-.sel-row { display:flex; align-items:flex-end; gap:12px; width:100%; }
-.sel-group { display:flex; flex-direction:column; gap:5px; flex:1; min-width:140px; }
-.sel-label { font-size:11px; color:var(--ink3); font-weight:500; letter-spacing:.06em; text-transform:uppercase; }
-.go-btn-main { flex-shrink:0; }
-select {
-  background:var(--surface2); border:1px solid var(--border2);
-  border-radius:var(--rs); color:var(--ink); font-family:var(--fb);
-  font-size:15px; font-weight:500; padding:10px 32px 10px 12px;
-  outline:none; cursor:pointer; width:100%; transition:border-color .15s;
-  appearance:none;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239a9890' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
-  background-repeat:no-repeat; background-position:right 12px center;
-  background-color:var(--surface2);
-}
-select:focus { border-color:var(--accent); }
-.arrow { font-size:20px; color:var(--ink3); padding-bottom:10px; flex-shrink:0; }
-.go-btn-main {
-  padding:11px 24px; background:var(--accent); color:#fff;
-  font-family:var(--fh); font-size:14px; font-weight:700;
-  border:none; border-radius:var(--rs); cursor:pointer;
-  transition:all .15s; white-space:nowrap; align-self:flex-end;
-}
-.go-btn-main:hover { background:#15572f; transform:translateY(-1px); }
-.go-btn-main:disabled { opacity:.5; cursor:not-allowed; transform:none; }
+    /* NAV */
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 0;
+      border-bottom: 1px solid var(--border);
+    }
 
-/* MID-MARKET BANNER */
-.midband {
-  background:var(--accent-light); border:1px solid var(--accent-border);
-  border-radius:var(--rs); padding:12px 18px; margin-bottom:20px;
-  display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;
-}
-.midband-left { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
-.midband-label { font-size:11px; color:var(--accent); font-weight:700; letter-spacing:.07em; text-transform:uppercase; }
-.midband-rate { font-family:var(--fh); font-size:22px; font-weight:800; color:var(--accent); }
-.midband-right { font-size:11px; color:var(--accent); opacity:.7; }
+    .logo {
+      font-family: var(--fh);
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--ink);
+      letter-spacing: -.5px;
+    }
 
-/* TABLE HEADER — hidden on mobile */
-.tbl-head {
-  display:grid; grid-template-columns:1fr 120px 120px 110px;
-  padding:8px 16px;
-  font-size:11px; color:var(--ink3); font-weight:600;
-  letter-spacing:.06em; text-transform:uppercase;
-}
+    .logo em {
+      font-style: normal;
+      color: var(--accent);
+    }
 
-/* PROVIDER ROW — flexbox, desktop: row, mobile: column */
-.prow {
-  background:var(--surface); border:1px solid var(--border);
-  border-radius:var(--r); margin-bottom:10px; overflow:hidden;
-  display:flex; flex-direction:row; align-items:stretch;
-  transition:border-color .15s, box-shadow .15s;
-  animation:fadeUp .2s ease both;
-}
-@keyframes fadeUp { from{opacity:0;transform:translateY(5px)} to{opacity:1;transform:translateY(0)} }
-.prow:hover { border-color:var(--border2); box-shadow:0 2px 10px rgba(0,0,0,.05); }
-.prow.best { border-color:var(--accent-border); border-left:3px solid var(--accent); }
+    .live-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--accent);
+      background: var(--accent-light);
+      border: 1px solid var(--accent-border);
+      padding: 4px 10px;
+      border-radius: 20px;
+    }
 
-/* prow-bottom: holds rate + markup + action, fills remaining width */
-.prow-bottom { display:flex; flex:1; align-items:center; }
+    .live-pill::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+      animation: blink 2s infinite;
+    }
 
-.cell { padding:14px 16px; }
+    @keyframes blink {
 
-/* Provider cell — fixed width on desktop */
-.cell-prov {
-  display:flex; align-items:center; gap:11px;
-  padding:14px 16px; flex-shrink:0; width:190px;
-  border-right:1px solid var(--border);
-}
-.plogo { width:38px; height:38px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-family:var(--fh); font-size:12px; font-weight:800; flex-shrink:0; }
-.pname { font-family:var(--fh); font-weight:700; font-size:14px; }
-.ptag { font-size:11px; color:var(--ink3); margin-top:1px; }
-.best-tag { display:inline-block; font-size:10px; font-weight:700; color:var(--accent); background:var(--accent-light); border:1px solid var(--accent-border); border-radius:4px; padding:1px 6px; margin-top:3px; letter-spacing:.05em; text-transform:uppercase; }
-
-/* Rate cell — flex:1 fills remaining space in prow-bottom */
-.cell-rate { flex:1; border-right:1px solid var(--border); padding:14px 16px; }
-.rate-num { font-family:var(--fh); font-size:20px; font-weight:800; color:var(--ink); letter-spacing:-.3px; }
-.rate-sub { font-size:11px; color:var(--ink3); margin-top:3px; }
-.live-tag { font-size:9px; font-weight:700; color:var(--accent); background:var(--accent-light); border:1px solid var(--accent-border); border-radius:3px; padding:1px 5px; margin-left:5px; vertical-align:middle; letter-spacing:.05em; }
-.stale-tag { font-size:9px; color:var(--warn); background:var(--warn-light); border-radius:3px; padding:1px 5px; margin-left:5px; vertical-align:middle; }
-
-/* Markup cell — fixed width */
-.cell-diff { flex-shrink:0; width:120px; text-align:center; border-right:1px solid var(--border); padding:14px 12px; }
-.diff-num { font-family:var(--fh); font-size:16px; font-weight:700; }
-.diff-num.good { color:var(--accent); }
-.diff-num.ok   { color:var(--warn); }
-.diff-num.bad  { color:var(--danger); }
-.diff-label { font-size:11px; color:var(--ink3); margin-top:2px; }
-
-/* Action cell — fixed width */
-.cell-action { flex-shrink:0; width:110px; text-align:center; padding:12px 14px; }
-.transfer-btn {
-  display:inline-flex; align-items:center; justify-content:center; gap:5px;
-  padding:9px 16px; background:var(--ink); color:#fff;
-  font-family:var(--fh); font-size:13px; font-weight:700;
-  border-radius:var(--rs); text-decoration:none; transition:all .15s; white-space:nowrap;
-  width:100%;
-}
-.transfer-btn:hover { background:var(--accent); }
-.prow.best .transfer-btn { background:var(--accent); }
-.prow.best .transfer-btn:hover { background:#15572f; }
-
-/* Status messages */
-.status { text-align:center; padding:60px 20px; color:var(--ink2); font-size:14px; line-height:1.8; }
-.spin { display:inline-block; width:22px; height:22px; border:2px solid var(--border2); border-top-color:var(--accent); border-radius:50%; animation:spin .7s linear infinite; margin-bottom:12px; }
-@keyframes spin { to{transform:rotate(360deg)} }
-
-/* Last updated bar */
-.update-bar { font-size:12px; color:var(--ink3); text-align:right; margin-bottom:10px; padding:0 4px; }
-
-/* Disclaimer */
-.disc { margin-top:24px; padding:14px 18px; background:var(--surface); border:1px solid var(--border); border-radius:var(--rs); font-size:12px; color:var(--ink3); line-height:1.7; }
-.disc strong { color:var(--ink2); }
-
-/* Footer */
-footer { text-align:center; padding:32px 0 24px; font-size:12px; color:var(--ink3); border-top:1px solid var(--border); margin-top:40px; }
-footer a { color:var(--accent); text-decoration:none; }
-
-/* ── RESPONSIVE ─────────────────────────────────────────── */
-@media(max-width:600px) {
-  /* Selector: stack everything vertically, button full width */
-  .selector { flex-direction:column; align-items:stretch; gap:10px; }
-  .arrow { display:none; }
-  .sel-group { min-width:unset; }
-  .go-btn-main { width:100%; padding:13px; font-size:15px; align-self:auto; }
-
-  /* Hide desktop table header */
-  .tbl-head { display:none !important; }
-
-  /* Provider card: flex column */
-  .prow { flex-direction:column !important; }
-
-  /* Top row: provider name spans full width */
-  .cell-prov {
-    width:100% !important;
-    border-right:none !important;
-    border-bottom:1px solid var(--border);
-  }
-
-  /* Bottom row: rate left, Transfer right, no markup column */
-  .prow-bottom { width:100%; align-items:stretch; }
-  .cell-rate { padding:12px 16px; }
-  .rate-num { font-size:22px; }
-  .cell-diff { display:none !important; }
-  .cell-action { width:auto !important; padding:10px 12px; display:flex; align-items:center; }
-  .transfer-btn { white-space:nowrap; width:auto; padding:10px 14px; font-size:13px; }
-}
-</style>
-</head>
-<body>
-<div class="wrap">
-
-  <nav>
-    <div class="logo">Remit<em>Radar</em></div>
-    <div class="live-pill">Rates updated daily</div>
-  </nav>
-
-  <div class="hero">
-    <h1>Who gives the <span>best rate</span> today?</h1>
-    <p>Compare exchange rates from every major provider side by side. Pick the best and transfer directly.</p>
-  </div>
-
-  <!-- SELECTOR -->
-  <div class="selector">
-    <div class="sel-group">
-      <div class="sel-label">Sending from</div>
-      <select id="fromCur" onchange="compare()"></select>
-    </div>
-    <div class="arrow">→</div>
-    <div class="sel-group">
-      <div class="sel-label">Receiving in</div>
-      <select id="toCur" onchange="compare()"></select>
-    </div>
-    <button class="go-btn-main" id="cmpBtn" onclick="compare()">See rates →</button>
-  </div>
-
-  <!-- MID-MARKET BANNER -->
-  <div class="midband" id="midband" style="display:none">
-    <div class="midband-left">
-      <span class="midband-label">Mid-market rate</span>
-      <span class="midband-rate" id="midRateVal"></span>
-    </div>
-    <span class="midband-right">European Central Bank · <span id="midRateDate"></span></span>
-  </div>
-
-  <!-- LAST UPDATED -->
-  <div class="update-bar" id="updateBar" style="display:none"></div>
-
-  <!-- TABLE HEADER -->
-  <div class="tbl-head" id="tblHead" style="display:none">
-    <div>Provider</div>
-    <div>Rate per 1 unit</div>
-    <div class="th-diff" style="text-align:center">vs mid-market</div>
-    <div></div>
-  </div>
-
-  <!-- RESULTS -->
-  <div id="results">
-    <div class="status">Select a currency pair above to compare rates from all providers.</div>
-  </div>
-
-  <!-- DISCLAIMER -->
-  <div class="disc" id="disc" style="display:none">
-    <strong>Wise rate</strong> is fetched live from the Wise API.
-    <strong>All other rates</strong> are fetched automatically each day from each provider's public website — they may lag a few hours.
-    <strong>Mid-market rate</strong> is from the European Central Bank via Frankfurter.
-    Rates are indicative — always verify on the provider's site before transferring.
-    RemitRadar is a comparison tool, not a financial advisor.
-  </div>
-
-</div>
-
-<footer>
-  <div class="wrap">
-    <p>© 2025 RemitRadar · <a href="#">About</a> · <a href="#">Data sources</a></p>
-    <p style="margin-top:5px">Mid-market rate: ECB/Frankfurter. Provider rates updated daily. Not financial advice.</p>
-  </div>
-</footer>
-
-<script>
-// ─── PROVIDER DISPLAY CONFIG ──────────────────────────────────────────────
-// These IDs must match the keys in rates.json
-const PROVIDER_META = {
-  wise:    { name:'Wise',          ini:'W',  bg:'#d4f7e8', fg:'#0d4a2a', tag:'Mid-market rate',     url:'https://wise.com/send' },
-  remitly: { name:'Remitly',       ini:'RL', bg:'#dbeafe', fg:'#1e3a5f', tag:'Bank · Cash · Wallet', url:'https://remitly.com' },
-  xoom:    { name:'Xoom (PayPal)', ini:'XM', bg:'#e0e7ff', fg:'#312e81', tag:'PayPal service',       url:'https://xoom.com' },
-  ria:     { name:'Ria Money',     ini:'RA', bg:'#fce7f3', fg:'#831843', tag:'Bank · Cash pickup',   url:'https://riamoneytransfer.com' },
-  wu:      { name:'Western Union', ini:'WU', bg:'#fef3c7', fg:'#78350f', tag:'500k+ locations',      url:'https://westernunion.com' },
-  icici:   { name:'ICICI Bank',    ini:'IC', bg:'#ffedd5', fg:'#7c2d12', tag:'NRI card rate',        url:'https://icicibank.com/nri' },
-  sbi:     { name:'SBI',           ini:'SB', bg:'#f0fdf4', fg:'#14532d', tag:'Forex card rate',      url:'https://sbi.co.in' },
-};
-
-// Affiliate suffix — replace with your real affiliate IDs when you sign up
-const AFF = '?utm_source=remiradar&utm_medium=referral';
-
-// ─── CURRENCY CONFIG ──────────────────────────────────────────────────────
-const FROM_CURRENCIES = [
-  { code:'USD', flag:'🇺🇸', name:'US Dollar' },
-  { code:'GBP', flag:'🇬🇧', name:'British Pound' },
-  { code:'EUR', flag:'🇪🇺', name:'Euro' },
-  { code:'CAD', flag:'🇨🇦', name:'Canadian Dollar' },
-  { code:'AUD', flag:'🇦🇺', name:'Australian Dollar' },
-  { code:'SGD', flag:'🇸🇬', name:'Singapore Dollar' },
-];
-const TO_CURRENCIES = [
-  { code:'INR', flag:'🇮🇳', name:'Indian Rupee' },
-  { code:'MXN', flag:'🇲🇽', name:'Mexican Peso' },
-  { code:'PHP', flag:'🇵🇭', name:'Philippine Peso' },
-  { code:'PKR', flag:'🇵🇰', name:'Pakistani Rupee' },
-  { code:'BDT', flag:'🇧🇩', name:'Bangladeshi Taka' },
-  { code:'NGN', flag:'🇳🇬', name:'Nigerian Naira' },
-  { code:'LKR', flag:'🇱🇰', name:'Sri Lankan Rupee' },
-  { code:'NPR', flag:'🇳🇵', name:'Nepalese Rupee' },
-];
-
-// ─── STATE ────────────────────────────────────────────────────────────────
-let ratesData = null; // loaded from rates.json
-
-// ─── INIT ─────────────────────────────────────────────────────────────────
-async function init() {
-  // Populate dropdowns
-  const fromSel = document.getElementById('fromCur');
-  const toSel   = document.getElementById('toCur');
-
-  FROM_CURRENCIES.forEach(c => {
-    const o = document.createElement('option');
-    o.value = c.code;
-    o.textContent = `${c.flag} ${c.code} — ${c.name}`;
-    fromSel.appendChild(o);
-  });
-  TO_CURRENCIES.forEach(c => {
-    const o = document.createElement('option');
-    o.value = c.code;
-    o.textContent = `${c.flag} ${c.code} — ${c.name}`;
-    toSel.appendChild(o);
-  });
-
-  // Load rates.json
-  try {
-    const res = await fetch('./rates.json');
-    if (!res.ok) throw new Error('rates.json not found');
-    ratesData = await res.json();
-  } catch (e) {
-    console.warn('Could not load rates.json:', e.message);
-    ratesData = null;
-  }
-
-  // Auto-run with defaults
-  compare();
-}
-
-// ─── HELPERS ──────────────────────────────────────────────────────────────
-function fmtRate(n) {
-  if (n >= 100)  return n.toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
-  if (n >= 10)   return n.toFixed(3);
-  if (n >= 1)    return n.toFixed(4);
-  return n.toFixed(5);
-}
-
-function diffClass(pct) {
-  if (pct >= -0.5) return 'good';
-  if (pct >= -2.5) return 'ok';
-  return 'bad';
-}
-
-function diffLabel(pct) {
-  if (pct >= 0) return `+${pct.toFixed(2)}%`;
-  return `${pct.toFixed(2)}%`;
-}
-
-function isStale(dateStr) {
-  if (!dateStr) return true;
-  const updated = new Date(dateStr);
-  const now     = new Date();
-  const diffDays = (now - updated) / (1000 * 60 * 60 * 24);
-  return diffDays > 2; // stale if older than 2 days
-}
-
-function timeAgo(isoStr) {
-  if (!isoStr) return 'unknown';
-  const d = new Date(isoStr);
-  const diff = Math.floor((Date.now() - d) / 60000); // minutes
-  if (diff < 60)  return `${diff}m ago`;
-  if (diff < 1440) return `${Math.floor(diff/60)}h ago`;
-  return `${Math.floor(diff/1440)}d ago`;
-}
-
-// ─── MAIN COMPARE ─────────────────────────────────────────────────────────
-async function compare() {
-  const from = document.getElementById('fromCur').value;
-  const to   = document.getElementById('toCur').value;
-
-  if (from === to) {
-    document.getElementById('results').innerHTML = '<div class="status">Please select two different currencies.</div>';
-    return;
-  }
-
-  const btn = document.getElementById('cmpBtn');
-  btn.disabled = true;
-  btn.textContent = 'Loading…';
-
-  document.getElementById('midband').style.display  = 'none';
-  document.getElementById('tblHead').style.display  = 'none';
-  document.getElementById('disc').style.display     = 'none';
-  document.getElementById('updateBar').style.display = 'none';
-  document.getElementById('results').innerHTML =
-    '<div class="status"><div class="spin"></div><br/>Fetching live mid-market rate…</div>';
-
-  try {
-    // 1. Fetch live mid-market rate — try Frankfurter first, fall back to open.er-api.com
-    let mid = null;
-    try {
-      const midRes = await fetch(`https://api.frankfurter.dev/v1/latest?from=${from}&to=${to}`);
-      if (midRes.ok) {
-        const midJson = await midRes.json();
-        mid = midJson.rates[to];
+      0%,
+      100% {
+        opacity: 1
       }
-    } catch (e) { /* Frankfurter failed, try fallback */ }
 
-    if (!mid) {
-      // Fallback: open.er-api.com — free, no key, full CORS support
-      const fbRes = await fetch(`https://open.er-api.com/v6/latest/${from}`);
-      if (!fbRes.ok) throw new Error('Could not fetch mid-market rate');
-      const fbJson = await fbRes.json();
-      mid = fbJson.rates[to];
+      50% {
+        opacity: .3
+      }
     }
 
-    if (!mid) throw new Error(`Pair ${from}→${to} not supported`);
+    /* HERO */
+    .hero {
+      padding: 44px 0 32px;
+      text-align: center;
+    }
 
-    // 2. Show mid-market banner
-    const midband = document.getElementById('midband');
-    document.getElementById('midRateVal').textContent  = `1 ${from} = ${fmtRate(mid)} ${to}`;
-    document.getElementById('midRateDate').textContent = new Date().toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
-    midband.style.display = 'flex';
+    .hero h1 {
+      font-family: var(--fh);
+      font-size: clamp(26px, 5vw, 44px);
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -.5px;
+      margin-bottom: 10px;
+    }
 
-    // 3. Get provider rates from rates.json
-    const key       = `${from}_${to}`;
-    const corridor  = ratesData?.corridors?.[key] || {};
-    const hasRates  = Object.keys(corridor).length > 0;
+    .hero h1 span {
+      color: var(--accent);
+    }
 
-    if (!hasRates) {
+    .hero p {
+      color: var(--ink2);
+      max-width: 400px;
+      margin: 0 auto;
+    }
+
+    /* SELECTOR */
+    .selector {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 20px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: flex-end;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .sel-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 12px;
+      width: 100%;
+    }
+
+    .sel-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      flex: 1;
+      min-width: 140px;
+    }
+
+    .sel-label {
+      font-size: 11px;
+      color: var(--ink3);
+      font-weight: 500;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+
+    .go-btn-main {
+      flex-shrink: 0;
+    }
+
+    select {
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: var(--rs);
+      color: var(--ink);
+      font-family: var(--fb);
+      font-size: 15px;
+      font-weight: 500;
+      padding: 10px 32px 10px 12px;
+      outline: none;
+      cursor: pointer;
+      width: 100%;
+      transition: border-color .15s;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239a9890' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      background-color: var(--surface2);
+    }
+
+    select:focus {
+      border-color: var(--accent);
+    }
+
+    .arrow {
+      font-size: 20px;
+      color: var(--ink3);
+      padding-bottom: 10px;
+      flex-shrink: 0;
+    }
+
+    .go-btn-main {
+      padding: 11px 24px;
+      background: var(--accent);
+      color: #fff;
+      font-family: var(--fh);
+      font-size: 14px;
+      font-weight: 700;
+      border: none;
+      border-radius: var(--rs);
+      cursor: pointer;
+      transition: all .15s;
+      white-space: nowrap;
+      align-self: flex-end;
+    }
+
+    .go-btn-main:hover {
+      background: #15572f;
+      transform: translateY(-1px);
+    }
+
+    .go-btn-main:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* MID-MARKET BANNER */
+    .midband {
+      background: var(--accent-light);
+      border: 1px solid var(--accent-border);
+      border-radius: var(--rs);
+      padding: 12px 18px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .midband-left {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .midband-label {
+      font-size: 11px;
+      color: var(--accent);
+      font-weight: 700;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+    }
+
+    .midband-rate {
+      font-family: var(--fh);
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--accent);
+    }
+
+    .midband-right {
+      font-size: 11px;
+      color: var(--accent);
+      opacity: .7;
+    }
+
+    /* TABLE HEADER — hidden on mobile */
+    .tbl-head {
+      display: grid;
+      grid-template-columns: 1fr 120px 120px 110px;
+      padding: 8px 16px;
+      font-size: 11px;
+      color: var(--ink3);
+      font-weight: 600;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+
+    /* PROVIDER ROW — flexbox, desktop: row, mobile: column */
+    .prow {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      margin-bottom: 10px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: row;
+      align-items: stretch;
+      transition: border-color .15s, box-shadow .15s;
+      animation: fadeUp .2s ease both;
+    }
+
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(5px)
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0)
+      }
+    }
+
+    .prow:hover {
+      border-color: var(--border2);
+      box-shadow: 0 2px 10px rgba(0, 0, 0, .05);
+    }
+
+    .prow.best {
+      border-color: var(--accent-border);
+      border-left: 3px solid var(--accent);
+    }
+
+    /* prow-bottom: holds rate + markup + action, fills remaining width */
+    .prow-bottom {
+      display: flex;
+      flex: 1;
+      align-items: center;
+    }
+
+    .cell {
+      padding: 14px 16px;
+    }
+
+    /* Provider cell — fixed width on desktop */
+    .cell-prov {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      padding: 14px 16px;
+      flex-shrink: 0;
+      width: 190px;
+      border-right: 1px solid var(--border);
+    }
+
+    .plogo {
+      width: 38px;
+      height: 38px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--fh);
+      font-size: 12px;
+      font-weight: 800;
+      flex-shrink: 0;
+    }
+
+    .pname {
+      font-family: var(--fh);
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .ptag {
+      font-size: 11px;
+      color: var(--ink3);
+      margin-top: 1px;
+    }
+
+    .best-tag {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--accent);
+      background: var(--accent-light);
+      border: 1px solid var(--accent-border);
+      border-radius: 4px;
+      padding: 1px 6px;
+      margin-top: 3px;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+    }
+
+    /* Rate cell — flex:1 fills remaining space in prow-bottom */
+    .cell-rate {
+      flex: 1;
+      border-right: 1px solid var(--border);
+      padding: 14px 16px;
+    }
+
+    .rate-num {
+      font-family: var(--fh);
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--ink);
+      letter-spacing: -.3px;
+    }
+
+    .rate-sub {
+      font-size: 11px;
+      color: var(--ink3);
+      margin-top: 3px;
+    }
+
+    .live-tag {
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--accent);
+      background: var(--accent-light);
+      border: 1px solid var(--accent-border);
+      border-radius: 3px;
+      padding: 1px 5px;
+      margin-left: 5px;
+      vertical-align: middle;
+      letter-spacing: .05em;
+    }
+
+    .stale-tag {
+      font-size: 9px;
+      color: var(--warn);
+      background: var(--warn-light);
+      border-radius: 3px;
+      padding: 1px 5px;
+      margin-left: 5px;
+      vertical-align: middle;
+    }
+
+    /* Markup cell — fixed width */
+    .cell-diff {
+      flex-shrink: 0;
+      width: 120px;
+      text-align: center;
+      border-right: 1px solid var(--border);
+      padding: 14px 12px;
+    }
+
+    .diff-num {
+      font-family: var(--fh);
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .diff-num.good {
+      color: var(--accent);
+    }
+
+    .diff-num.ok {
+      color: var(--warn);
+    }
+
+    .diff-num.bad {
+      color: var(--danger);
+    }
+
+    .diff-label {
+      font-size: 11px;
+      color: var(--ink3);
+      margin-top: 2px;
+    }
+
+    /* Action cell — fixed width */
+    .cell-action {
+      flex-shrink: 0;
+      width: 110px;
+      text-align: center;
+      padding: 12px 14px;
+    }
+
+    .transfer-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      padding: 9px 16px;
+      background: var(--ink);
+      color: #fff;
+      font-family: var(--fh);
+      font-size: 13px;
+      font-weight: 700;
+      border-radius: var(--rs);
+      text-decoration: none;
+      transition: all .15s;
+      white-space: nowrap;
+      width: 100%;
+    }
+
+    .transfer-btn:hover {
+      background: var(--accent);
+    }
+
+    .prow.best .transfer-btn {
+      background: var(--accent);
+    }
+
+    .prow.best .transfer-btn:hover {
+      background: #15572f;
+    }
+
+    /* Status messages */
+    .status {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--ink2);
+      font-size: 14px;
+      line-height: 1.8;
+    }
+
+    .spin {
+      display: inline-block;
+      width: 22px;
+      height: 22px;
+      border: 2px solid var(--border2);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      margin-bottom: 12px;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg)
+      }
+    }
+
+    /* Last updated bar */
+    .update-bar {
+      font-size: 12px;
+      color: var(--ink3);
+      text-align: right;
+      margin-bottom: 10px;
+      padding: 0 4px;
+    }
+
+    /* Disclaimer */
+    .disc {
+      margin-top: 24px;
+      padding: 14px 18px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--rs);
+      font-size: 12px;
+      color: var(--ink3);
+      line-height: 1.7;
+    }
+
+    .disc strong {
+      color: var(--ink2);
+    }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      padding: 32px 0 24px;
+      font-size: 12px;
+      color: var(--ink3);
+      border-top: 1px solid var(--border);
+      margin-top: 40px;
+    }
+
+    footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    /* ── RESPONSIVE ─────────────────────────────────────────── */
+    @media(max-width:600px) {
+
+      /* Selector: stack everything vertically, button full width */
+      .selector {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+      }
+
+      .arrow {
+        display: none;
+      }
+
+      .sel-group {
+        min-width: unset;
+      }
+
+      .go-btn-main {
+        width: 100%;
+        padding: 13px;
+        font-size: 15px;
+        align-self: auto;
+      }
+
+      /* Hide desktop table header */
+      .tbl-head {
+        display: none !important;
+      }
+
+      /* Provider card: flex column */
+      .prow {
+        flex-direction: column !important;
+      }
+
+      /* Top row: provider name spans full width */
+      .cell-prov {
+        width: 100% !important;
+        border-right: none !important;
+        border-bottom: 1px solid var(--border);
+      }
+
+      /* Bottom row: rate left, Transfer right, no markup column */
+      .prow-bottom {
+        width: 100%;
+        align-items: stretch;
+      }
+
+      .cell-rate {
+        padding: 12px 16px;
+      }
+
+      .rate-num {
+        font-size: 22px;
+      }
+
+      .cell-diff {
+        display: none !important;
+      }
+
+      .cell-action {
+        width: auto !important;
+        padding: 10px 12px;
+        display: flex;
+        align-items: center;
+      }
+
+      .transfer-btn {
+        white-space: nowrap;
+        width: auto;
+        padding: 10px 14px;
+        font-size: 13px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+
+    <nav>
+      <div class="logo">Remit<em>Radar</em></div>
+      <div class="live-pill">Rates updated daily</div>
+    </nav>
+
+    <div class="hero">
+      <h1>Who gives the <span>best rate</span> today?</h1>
+      <p>Compare exchange rates from every major provider side by side. Pick the best and transfer directly.</p>
+    </div>
+
+    <!-- SELECTOR -->
+    <div class="selector">
+      <div class="sel-group">
+        <div class="sel-label">Sending from</div>
+        <select id="fromCur" onchange="compare()"></select>
+      </div>
+      <div class="arrow">→</div>
+      <div class="sel-group">
+        <div class="sel-label">Receiving in</div>
+        <select id="toCur" onchange="compare()"></select>
+      </div>
+      <button class="go-btn-main" id="cmpBtn" onclick="compare()">See rates →</button>
+    </div>
+
+    <!-- MID-MARKET BANNER -->
+    <div class="midband" id="midband" style="display:none">
+      <div class="midband-left">
+        <span class="midband-label">Mid-market rate</span>
+        <span class="midband-rate" id="midRateVal"></span>
+      </div>
+      <span class="midband-right">European Central Bank · <span id="midRateDate"></span></span>
+    </div>
+
+    <!-- LAST UPDATED -->
+    <div class="update-bar" id="updateBar" style="display:none"></div>
+
+    <!-- TABLE HEADER -->
+    <div class="tbl-head" id="tblHead" style="display:none">
+      <div>Provider</div>
+      <div>Rate per 1 unit</div>
+      <div class="th-diff" style="text-align:center">vs mid-market</div>
+      <div></div>
+    </div>
+
+    <!-- RESULTS -->
+    <div id="results">
+      <div class="status">Select a currency pair above to compare rates from all providers.</div>
+    </div>
+
+    <!-- DISCLAIMER -->
+    <div class="disc" id="disc" style="display:none">
+      <strong>Wise rate</strong> is fetched live from the Wise API.
+      <strong>All other rates</strong> are fetched automatically each day from each provider's public website — they may
+      lag a few hours.
+      <strong>Mid-market rate</strong> is from the European Central Bank via Frankfurter.
+      Rates are indicative — always verify on the provider's site before transferring.
+      RemitRadar is a comparison tool, not a financial advisor.
+    </div>
+
+  </div>
+
+  <footer>
+    <div class="wrap">
+      <p>© 2025 RemitRadar · <a href="#">About</a> · <a href="#">Data sources</a></p>
+      <p style="margin-top:5px">Mid-market rate: ECB/Frankfurter. Provider rates updated daily. Not financial advice.
+      </p>
+    </div>
+  </footer>
+
+  <script>
+    // ─── PROVIDER DISPLAY CONFIG ──────────────────────────────────────────────
+    // These IDs must match the keys in rates.json
+    const PROVIDER_META = {
+      wise: { name: 'Wise', ini: 'W', bg: '#d4f7e8', fg: '#0d4a2a', tag: 'Mid-market rate', url: 'https://wise.com/send' },
+      remitly: { name: 'Remitly', ini: 'RL', bg: '#dbeafe', fg: '#1e3a5f', tag: 'Bank · Cash · Wallet', url: 'https://remitly.com' },
+      xoom: { name: 'Xoom (PayPal)', ini: 'XM', bg: '#e0e7ff', fg: '#312e81', tag: 'PayPal service', url: 'https://xoom.com' },
+      ria: { name: 'Ria Money', ini: 'RA', bg: '#fce7f3', fg: '#831843', tag: 'Bank · Cash pickup', url: 'https://riamoneytransfer.com' },
+      wu: { name: 'Western Union', ini: 'WU', bg: '#fef3c7', fg: '#78350f', tag: '500k+ locations', url: 'https://westernunion.com' },
+      icici: { name: 'ICICI Bank', ini: 'IC', bg: '#ffedd5', fg: '#7c2d12', tag: 'NRI card rate', url: 'https://icicibank.com/nri' },
+      sbi: { name: 'SBI', ini: 'SB', bg: '#f0fdf4', fg: '#14532d', tag: 'Forex card rate', url: 'https://sbi.co.in' },
+    };
+
+    // Affiliate suffix — replace with your real affiliate IDs when you sign up
+    const AFF = '?utm_source=remiradar&utm_medium=referral';
+
+    // ─── CURRENCY CONFIG ──────────────────────────────────────────────────────
+    const FROM_CURRENCIES = [
+      { code: 'USD', flag: '🇺🇸', name: 'US Dollar' },
+      { code: 'GBP', flag: '🇬🇧', name: 'British Pound' },
+      { code: 'EUR', flag: '🇪🇺', name: 'Euro' },
+      { code: 'CAD', flag: '🇨🇦', name: 'Canadian Dollar' },
+      { code: 'AUD', flag: '🇦🇺', name: 'Australian Dollar' },
+      { code: 'SGD', flag: '🇸🇬', name: 'Singapore Dollar' },
+    ];
+    const TO_CURRENCIES = [
+      { code: 'INR', flag: '🇮🇳', name: 'Indian Rupee' },
+      { code: 'MXN', flag: '🇲🇽', name: 'Mexican Peso' },
+      { code: 'PHP', flag: '🇵🇭', name: 'Philippine Peso' },
+      { code: 'PKR', flag: '🇵🇰', name: 'Pakistani Rupee' },
+      { code: 'BDT', flag: '🇧🇩', name: 'Bangladeshi Taka' },
+      { code: 'NGN', flag: '🇳🇬', name: 'Nigerian Naira' },
+      { code: 'LKR', flag: '🇱🇰', name: 'Sri Lankan Rupee' },
+      { code: 'NPR', flag: '🇳🇵', name: 'Nepalese Rupee' },
+    ];
+
+    // ─── STATE ────────────────────────────────────────────────────────────────
+    let ratesData = null; // loaded from rates.json
+
+    // ─── INIT ─────────────────────────────────────────────────────────────────
+    async function init() {
+      // Populate dropdowns
+      const fromSel = document.getElementById('fromCur');
+      const toSel = document.getElementById('toCur');
+
+      FROM_CURRENCIES.forEach(c => {
+        const o = document.createElement('option');
+        o.value = c.code;
+        o.textContent = `${c.flag} ${c.code} — ${c.name}`;
+        fromSel.appendChild(o);
+      });
+      TO_CURRENCIES.forEach(c => {
+        const o = document.createElement('option');
+        o.value = c.code;
+        o.textContent = `${c.flag} ${c.code} — ${c.name}`;
+        toSel.appendChild(o);
+      });
+
+      // Load rates.json
+      try {
+        const res = await fetch('./rates.json', { cache: 'no-cache' });
+        if (!res.ok) throw new Error('rates.json not found');
+        ratesData = await res.json();
+      } catch (e) {
+        console.warn('Could not load rates.json:', e.message);
+        ratesData = null;
+      }
+
+      // Auto-run with defaults
+      compare();
+    }
+
+    // ─── HELPERS ──────────────────────────────────────────────────────────────
+    function fmtRate(n) {
+      if (n >= 100) return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      if (n >= 10) return n.toFixed(3);
+      if (n >= 1) return n.toFixed(4);
+      return n.toFixed(5);
+    }
+
+    function diffClass(pct) {
+      if (pct >= -0.5) return 'good';
+      if (pct >= -2.5) return 'ok';
+      return 'bad';
+    }
+
+    function diffLabel(pct) {
+      if (pct >= 0) return `+${pct.toFixed(2)}%`;
+      return `${pct.toFixed(2)}%`;
+    }
+
+    function isStale(dateStr) {
+      if (!dateStr) return true;
+      const updated = new Date(dateStr);
+      const now = new Date();
+      const diffDays = (now - updated) / (1000 * 60 * 60 * 24);
+      return diffDays > 2; // stale if older than 2 days
+    }
+
+    function timeAgo(isoStr) {
+      if (!isoStr) return 'unknown';
+      const d = new Date(isoStr);
+      const diff = Math.floor((Date.now() - d) / 60000); // minutes
+      if (diff < 60) return `${diff}m ago`;
+      if (diff < 1440) return `${Math.floor(diff / 60)}h ago`;
+      return `${Math.floor(diff / 1440)}d ago`;
+    }
+
+    // ─── MAIN COMPARE ─────────────────────────────────────────────────────────
+    async function compare() {
+      const from = document.getElementById('fromCur').value;
+      const to = document.getElementById('toCur').value;
+
+      if (from === to) {
+        document.getElementById('results').innerHTML = '<div class="status">Please select two different currencies.</div>';
+        return;
+      }
+
+      const btn = document.getElementById('cmpBtn');
+      btn.disabled = true;
+      btn.textContent = 'Loading…';
+
+      document.getElementById('midband').style.display = 'none';
+      document.getElementById('tblHead').style.display = 'none';
+      document.getElementById('disc').style.display = 'none';
+      document.getElementById('updateBar').style.display = 'none';
       document.getElementById('results').innerHTML =
-        `<div class="status">No provider rates available yet for <strong>${from} → ${to}</strong>.<br/>
+        '<div class="status"><div class="spin"></div><br/>Fetching live mid-market rate…</div>';
+
+      try {
+        // 1. Fetch live mid-market rate — try Frankfurter first, fall back to open.er-api.com
+        let mid = null;
+        try {
+          const midRes = await fetch(`https://api.frankfurter.dev/v1/latest?from=${from}&to=${to}`);
+          if (midRes.ok) {
+            const midJson = await midRes.json();
+            mid = midJson.rates[to];
+          }
+        } catch (e) { /* Frankfurter failed, try fallback */ }
+
+        if (!mid) {
+          // Fallback: open.er-api.com — free, no key, full CORS support
+          const fbRes = await fetch(`https://open.er-api.com/v6/latest/${from}`);
+          if (!fbRes.ok) throw new Error('Could not fetch mid-market rate');
+          const fbJson = await fbRes.json();
+          mid = fbJson.rates[to];
+        }
+
+        if (!mid) throw new Error(`Pair ${from}→${to} not supported`);
+
+        // 2. Show mid-market banner
+        const midband = document.getElementById('midband');
+        document.getElementById('midRateVal').textContent = `1 ${from} = ${fmtRate(mid)} ${to}`;
+        document.getElementById('midRateDate').textContent = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+        midband.style.display = 'flex';
+
+        // 3. Get provider rates from rates.json
+        const key = `${from}_${to}`;
+        const corridor = ratesData?.corridors?.[key] || {};
+        const hasRates = Object.keys(corridor).length > 0;
+
+        if (!hasRates) {
+          document.getElementById('results').innerHTML =
+            `<div class="status">No provider rates available yet for <strong>${from} → ${to}</strong>.<br/>
         This corridor will be added soon. Mid-market rate shown above for reference.</div>`;
-      document.getElementById('disc').style.display = 'block';
-      btn.disabled = false;
-      btn.textContent = 'See rates →';
-      return;
-    }
+          document.getElementById('disc').style.display = 'block';
+          btn.disabled = false;
+          btn.textContent = 'See rates →';
+          return;
+        }
 
-    // 4. Build rows
-    const rows = [];
-    for (const [id, data] of Object.entries(corridor)) {
-      const meta = PROVIDER_META[id];
-      if (!meta || !data.rate) continue;
-      const pct = (data.rate - mid) / mid * 100;
-      rows.push({ id, meta, rate: data.rate, updated: data.updated, source: data.source, pct });
-    }
+        // 4. Build rows
+        const rows = [];
+        for (const [id, data] of Object.entries(corridor)) {
+          const meta = PROVIDER_META[id];
+          if (!meta || !data.rate) continue;
+          const pct = (data.rate - mid) / mid * 100;
+          rows.push({ id, meta, rate: data.rate, updated: data.updated, source: data.source, pct });
+        }
 
-    // Sort by best rate (highest = most currency per unit = best for customer)
-    rows.sort((a, b) => b.rate - a.rate);
+        // Sort by best rate (highest = most currency per unit = best for customer)
+        rows.sort((a, b) => b.rate - a.rate);
 
-    // 5. Show last-updated bar
-    if (ratesData?.lastRun) {
-      document.getElementById('updateBar').textContent =
-        `Provider rates last updated: ${timeAgo(ratesData.lastRun)} · ${new Date(ratesData.lastRun).toLocaleString('en-GB', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' })}`;
-      document.getElementById('updateBar').style.display = 'block';
-    }
+        // 5. Show last-updated bar
+        if (ratesData?.lastRun) {
+          document.getElementById('updateBar').textContent =
+            `Provider rates last updated: ${timeAgo(ratesData.lastRun)} · ${new Date(ratesData.lastRun).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`;
+          document.getElementById('updateBar').style.display = 'block';
+        }
 
-    // 6. Show table header
-    document.getElementById('tblHead').style.display = 'grid';
-    document.getElementById('disc').style.display    = 'block';
+        // 6. Show table header
+        document.getElementById('tblHead').style.display = 'grid';
+        document.getElementById('disc').style.display = 'block';
 
-    // 7. Render rows
-    document.getElementById('results').innerHTML = rows.map(({ id, meta, rate, updated, source, pct }, i) => {
-      const isBest   = i === 0;
-      const isLive   = source === 'api';
-      const stale    = isStale(updated);
-      const dClass   = diffClass(pct);
+        // 7. Render rows
+        document.getElementById('results').innerHTML = rows.map(({ id, meta, rate, updated, source, pct }, i) => {
+          const isBest = i === 0;
+          const isLive = source === 'api';
+          const stale = isStale(updated);
+          const dClass = diffClass(pct);
 
-      const sourceTag = isLive
-        ? `<span class="live-tag">LIVE</span>`
-        : stale
-          ? `<span class="stale-tag">may be stale</span>`
-          : '';
+          const sourceTag = isLive
+            ? `<span class="live-tag">LIVE</span>`
+            : stale
+              ? `<span class="stale-tag">may be stale</span>`
+              : '';
 
-      return `
-      <div class="prow ${isBest ? 'best' : ''}" style="animation-delay:${i*35}ms">
+          return `
+      <div class="prow ${isBest ? 'best' : ''}" style="animation-delay:${i * 35}ms">
 
         <div class="cell cell-prov">
           <div class="plogo" style="background:${meta.bg};color:${meta.fg}">${meta.ini}</div>
@@ -500,24 +952,25 @@ async function compare() {
         </div>
 
       </div>`;
-    }).join('');
+        }).join('');
 
-  } catch (e) {
-    document.getElementById('results').innerHTML =
-      `<div class="status" style="color:#dc2626">
+      } catch (e) {
+        document.getElementById('results').innerHTML =
+          `<div class="status" style="color:#dc2626">
         Could not fetch rates for <strong>${from} → ${to}</strong>.<br/>
         ${e.message}<br/><br/>
         <span style="color:#5a5952;font-size:13px">Note: AED and SAR are not in ECB data. Use USD, GBP or EUR as the send currency.</span>
       </div>`;
-    console.error(e);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'See rates →';
-  }
-}
+        console.error(e);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'See rates →';
+      }
+    }
 
-// ─── START ────────────────────────────────────────────────────────────────
-init();
-</script>
+    // ─── START ────────────────────────────────────────────────────────────────
+    init();
+  </script>
 </body>
+
 </html>
