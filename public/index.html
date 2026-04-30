@@ -7,6 +7,14 @@
   <base href="./">
   <title>RemitRadar — Best Exchange Rates Compared</title>
   <link rel="icon" type="image/svg+xml" href="./favicon.svg"/>
+  <!-- Google tag (gtag.js) — replace G-XXXXXXXXXX with your real GA4 Measurement ID -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-XXXXXXXXXX');
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link
     href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;500;600;700;800&family=Instrument+Sans:wght@400;500&display=swap"
@@ -728,8 +736,31 @@
       sbi: { name: 'SBI', ini: 'SB', bg: '#f0fdf4', fg: '#14532d', tag: 'Forex card rate', url: 'https://sbi.co.in' },
     };
 
-    // Affiliate suffix — replace with your real affiliate IDs when you sign up
-    const AFF = '?utm_source=remiradar&utm_medium=referral';
+    // Build UTM-tagged URL for each provider click
+    // utm_campaign = provider id, utm_content = corridor (e.g. USD-INR)
+    function affUrl(baseUrl, id, from, to) {
+      const params = new URLSearchParams({
+        utm_source: 'remitradar',
+        utm_medium: 'comparison',
+        utm_campaign: id,
+        utm_content: `${from}-${to}`,
+      });
+      const sep = baseUrl.includes('?') ? '&' : '?';
+      return `${baseUrl}${sep}${params}`;
+    }
+
+    // Fire GA4 event when user clicks a Transfer button
+    function trackClick(id, providerName, from, to, rank) {
+      if (typeof gtag === 'function') {
+        gtag('event', 'provider_click', {
+          provider_id: id,
+          provider_name: providerName,
+          from_currency: from,
+          to_currency: to,
+          rank: rank,
+        });
+      }
+    }
 
     // ─── CURRENCY CONFIG ──────────────────────────────────────────────────────
     const FROM_CURRENCIES = [
@@ -951,7 +982,8 @@
           </div>
 
           <div class="cell cell-action">
-            <a class="transfer-btn" href="${meta.url}${AFF}" target="_blank" rel="noopener sponsored">
+            <a class="transfer-btn" href="${affUrl(meta.url, id, from, to)}" target="_blank" rel="noopener sponsored"
+               onclick="trackClick('${id}', '${meta.name}', '${from}', '${to}', ${i + 1})">
               Transfer ↗
             </a>
           </div>
