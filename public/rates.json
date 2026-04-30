@@ -1,5 +1,5 @@
 {
-  "lastRun": "2026-04-30T02:27:10.511Z",
+  "lastRun": "2026-04-30T09:57:06.642Z",
   "date": "2026-04-30",
   "corridors": {
     "USD_INR": {
@@ -9,27 +9,27 @@
         "source": "ecb-proxy"
       },
       "icici": {
-        "rate": 94.39,
+        "rate": 94.72,
         "updated": "2026-04-30",
         "source": "scrape"
       },
       "wu": {
-        "rate": 94.3067,
+        "rate": 94.4837,
         "updated": "2026-04-30",
         "source": "scrape"
       },
       "remitly": {
-        "rate": 95.51,
+        "rate": 95.61,
         "updated": "2026-04-30",
         "source": "scrape"
       },
       "xoom": {
-        "rate": 94.5848,
+        "rate": 94.7469,
         "updated": "2026-04-30",
         "source": "scrape"
       },
       "instarem": {
-        "rate": 94.1955,
+        "rate": 94.3073,
         "updated": "2026-04-30",
         "source": "api"
       }
@@ -51,7 +51,7 @@
         "source": "scrape"
       },
       "xoom": {
-        "rate": 17.7695,
+        "rate": 17.7688,
         "updated": "2026-04-30",
         "source": "scrape"
       }
@@ -63,17 +63,17 @@
         "source": "ecb-proxy"
       },
       "wu": {
-        "rate": 60.6417,
+        "rate": 60.6837,
         "updated": "2026-04-30",
         "source": "scrape"
       },
       "remitly": {
-        "rate": 62.84,
+        "rate": 62.7,
         "updated": "2026-04-30",
         "source": "scrape"
       },
       "xoom": {
-        "rate": 59.3223,
+        "rate": 59.4482,
         "updated": "2026-04-30",
         "source": "scrape"
       }
@@ -95,7 +95,7 @@
         "source": "scrape"
       },
       "xoom": {
-        "rate": 269.6275,
+        "rate": 269.6359,
         "updated": "2026-04-30",
         "source": "scrape"
       }
@@ -107,12 +107,12 @@
         "source": "ecb-proxy"
       },
       "icici": {
-        "rate": 128.06,
+        "rate": 128.49,
         "updated": "2026-04-30",
         "source": "scrape"
       },
       "xoom": {
-        "rate": 126.5034,
+        "rate": 126.9509,
         "updated": "2026-04-30",
         "source": "scrape"
       }
@@ -124,7 +124,7 @@
         "source": "ecb-proxy"
       },
       "xoom": {
-        "rate": 109.3623,
+        "rate": 109.7309,
         "updated": "2026-04-30",
         "source": "scrape"
       }
