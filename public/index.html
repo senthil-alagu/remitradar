@@ -823,6 +823,11 @@
       return `${Math.floor(diff / 1440)}d ago`;
     }
 
+    function fmtDate(dateStr) {
+      if (!dateStr) return 'unknown';
+      return new Date(dateStr).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    }
+
     // ─── MAIN COMPARE ─────────────────────────────────────────────────────────
     async function compare() {
       const from = document.getElementById('fromCur').value;
@@ -937,7 +942,7 @@
         <div class="prow-bottom">
           <div class="cell cell-rate">
             <div class="rate-num">${fmtRate(rate)}${sourceTag}</div>
-            <div class="rate-sub">1 ${from} = ${fmtRate(rate)} ${to} · updated ${updated || 'unknown'}</div>
+            <div class="rate-sub">1 ${from} = ${fmtRate(rate)} ${to} · updated ${fmtDate(updated)}</div>
           </div>
 
           <div class="cell cell-diff">
