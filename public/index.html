@@ -927,7 +927,7 @@
         // 4. Build rows
         const rows = [];
         for (const [id, data] of Object.entries(corridor)) {
-          const meta = PROVIDER_META[id];
+          const meta = PROVIDER_META[id] || PROVIDER_META[id.toLowerCase()];
           if (!meta || !data.rate) continue;
           const pct = (data.rate - mid) / mid * 100;
           rows.push({ id, meta, rate: data.rate, updated: data.updated, source: data.source, pct });
