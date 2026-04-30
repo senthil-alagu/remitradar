@@ -259,6 +259,56 @@ async function fetchXoom(from, to, page) {
 // See: https://www.riamoneytransfer.com/en-us/
 // The fetchRia function is intentionally removed.
 
+// ─── 8. INSTAREM ──────────────────────────────────────────────────────────
+// Primary: public REST API. Fallback: scrape calculator page.
+// Supports INR and PHP destination corridors.
+async function fetchInstarem(from, to, page) {
+  const supported = ['INR', 'PHP'];
+  if (!supported.includes(to)) { log(`  ↷ Instarem skipped for ${from}→${to}`); return null; }
+
+  try {
+    const res = await fetch(
+      `https://www.instarem.com/api/v1/public/exchange-rate?source_currency=${from}&destination_currency=${to}&instarem_bank_account_id=1`,
+      { headers: { Accept: 'application/json', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' } }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      const rate = parseFloat(data?.data?.fx_rate ?? data?.fx_rate);
+      if (!isNaN(rate) && rate > 0) return rate;
+    }
+  } catch (e) {
+    log(`  Instarem API error: ${e.message} — trying scrape`);
+  }
+
+  if (!page) return null;
+  try {
+    const url = `https://www.instarem.com/en-us/?sourceCurrency=${from}&destinationCurrency=${to}`;
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 });
+    const rate = await waitForRate(page, from, to, 15000);
+    if (!rate) throw new Error('rate not found');
+    return rate;
+  } catch (e) {
+    log(`  ✗ Instarem: ${e.message}`);
+    return null;
+  }
+}
+
+// ─── 9. REVOLUT ────────────────────────────────────────────────────────────
+// Scrapes the public currency-exchange page — no API key required.
+async function fetchRevolut(from, to, page) {
+  if (!page) return null;
+  try {
+    const url = `https://www.revolut.com/currency-exchange/${from.toLowerCase()}-to-${to.toLowerCase()}/`;
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 });
+    const rate = await waitForRate(page, from, to, 15000);
+    if (!rate) throw new Error('rate not found');
+    return rate;
+  } catch (e) {
+    log(`  ✗ Revolut: ${e.message}`);
+    return null;
+  }
+}
+
 // ─── MAIN ─────────────────────────────────────────────────────────────────
 async function main() {
   log('RemitRadar rate fetcher v7 starting...');
@@ -352,6 +402,20 @@ async function main() {
 
     // 7. Ria — updated manually in rates.json (skipped in automation)
     log(`  ↷ Ria: manual update — edit rates.json directly`);
+
+    // 8. Instarem (INR + PHP corridors; API-first with scrape fallback)
+    if (page) {
+      log(`  Fetching Instarem...`);
+      save('instarem', await fetchInstarem(from, to, page), 'api');
+      await sleep(2000);
+    }
+
+    // 9. Revolut (all corridors; public exchange-rate page)
+    if (page) {
+      log(`  Fetching Revolut...`);
+      save('revolut', await fetchRevolut(from, to, page), 'scrape');
+      await sleep(2000);
+    }
   }
 
   if (browser) { await browser.close(); log('\nBrowser closed.'); }

@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Static Site (public/)",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "public", "--listen", "3000", "--no-clipboard"],
+      "port": 3000
+    },
+    {
+      "name": "Scraper — Test Mode",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["scraper/fetch_rates.js", "--test"],
+      "port": null
+    }
+  ]
+}
