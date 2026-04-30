@@ -808,7 +808,7 @@
 
       // Load rates.json
       try {
-        const res = await fetch('./rates.json', { cache: 'no-cache' });
+        const res = await fetch(`./rates.json?t=${Date.now()}`);
         if (!res.ok) throw new Error('rates.json not found');
         ratesData = await res.json();
       } catch (e) {
