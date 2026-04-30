@@ -32,6 +32,11 @@
         "rate": 94.2551,
         "updated": "2026-04-30",
         "source": "api"
+      },
+      "Ria": {
+        "rate": 94.535,
+        "updated": "2026-04-30",
+        "source": "manual"
       }
     },
     "USD_MXN": {
@@ -54,6 +59,11 @@
         "rate": 17.7419,
         "updated": "2026-04-30",
         "source": "scrape"
+      },
+        "Ria": {
+        "rate": 17.73,
+        "updated": "2026-04-30",
+        "source": "manual"
       }
     },
     "USD_PHP": {
@@ -76,6 +86,11 @@
         "rate": 59.4482,
         "updated": "2026-04-30",
         "source": "scrape"
+      },
+      "Ria": {
+        "rate": 60.378,
+        "updated": "2026-04-30",
+        "source": "manual"
       }
     },
     "USD_PKR": {
@@ -98,6 +113,11 @@
         "rate": 269.6359,
         "updated": "2026-04-30",
         "source": "scrape"
+      },
+      "Ria": {
+        "rate": 277.824,
+        "updated": "2026-04-30",
+        "source": "manual"
       }
     },
     "GBP_INR": {
@@ -115,6 +135,11 @@
         "rate": 126.9404,
         "updated": "2026-04-30",
         "source": "scrape"
+      },
+      "Ria": {
+        "rate": 127.92,
+        "updated": "2026-04-30",
+        "source": "manual"
       }
     },
     "EUR_INR": {
@@ -127,6 +152,11 @@
         "rate": 109.7189,
         "updated": "2026-04-30",
         "source": "scrape"
+      },
+      "Ria": {
+        "rate": 110.55,
+        "updated": "2026-04-30",
+        "source": "manual"
       }
     },
     "CAD_INR": {
@@ -144,6 +174,11 @@
         "rate": 68.5844,
         "updated": "2026-04-30",
         "source": "scrape"
+      },
+      "Ria": {
+        "rate": 69.03749,
+        "updated": "2026-04-30",
+        "source": "manual"
       }
     },
     "AUD_INR": {
@@ -156,6 +191,11 @@
         "rate": 68.4295,
         "updated": "2026-04-30",
         "source": "scrape"
+      },
+      "Ria": {
+        "rate": 67.34817,
+        "updated": "2026-04-30",
+        "source": "manual"
       }
     }
   }
