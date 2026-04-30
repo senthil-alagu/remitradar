@@ -1,5 +1,5 @@
 {
-  "lastRun": "2026-04-30T15:45:54.257Z",
+  "lastRun": "2026-04-30T20:51:00.955Z",
   "date": "2026-04-30",
   "corridors": {
     "USD_INR": {
@@ -14,12 +14,12 @@
         "source": "scrape"
       },
       "wu": {
-        "rate": 94.5075,
+        "rate": 94.5104,
         "updated": "2026-04-30",
         "source": "scrape"
       },
       "remitly": {
-        "rate": 95.34,
+        "rate": 95.33,
         "updated": "2026-04-30",
         "source": "scrape"
       },
@@ -29,14 +29,9 @@
         "source": "scrape"
       },
       "instarem": {
-        "rate": 94.2551,
+        "rate": 94.2452,
         "updated": "2026-04-30",
         "source": "api"
-      },
-      "ria": {
-        "rate": 94.535,
-        "updated": "2026-04-30",
-        "source": "manual"
       }
     },
     "USD_MXN": {
@@ -51,19 +46,14 @@
         "source": "scrape"
       },
       "remitly": {
-        "rate": 17.86,
+        "rate": 17.81,
         "updated": "2026-04-30",
         "source": "scrape"
       },
       "xoom": {
-        "rate": 17.7419,
+        "rate": 17.7036,
         "updated": "2026-04-30",
         "source": "scrape"
-      },
-        "ria": {
-        "rate": 17.73,
-        "updated": "2026-04-30",
-        "source": "manual"
       }
     },
     "USD_PHP": {
@@ -78,7 +68,7 @@
         "source": "scrape"
       },
       "remitly": {
-        "rate": 62.69,
+        "rate": 62.59,
         "updated": "2026-04-30",
         "source": "scrape"
       },
@@ -86,11 +76,6 @@
         "rate": 59.4482,
         "updated": "2026-04-30",
         "source": "scrape"
-      },
-      "ria": {
-        "rate": 60.378,
-        "updated": "2026-04-30",
-        "source": "manual"
       }
     },
     "USD_PKR": {
@@ -113,11 +98,6 @@
         "rate": 269.6359,
         "updated": "2026-04-30",
         "source": "scrape"
-      },
-      "ria": {
-        "rate": 277.824,
-        "updated": "2026-04-30",
-        "source": "manual"
       }
     },
     "GBP_INR": {
@@ -127,7 +107,7 @@
         "source": "ecb-proxy"
       },
       "icici": {
-        "rate": 129.1,
+        "rate": 128.98,
         "updated": "2026-04-30",
         "source": "scrape"
       },
@@ -135,11 +115,6 @@
         "rate": 126.9404,
         "updated": "2026-04-30",
         "source": "scrape"
-      },
-      "ria": {
-        "rate": 127.92,
-        "updated": "2026-04-30",
-        "source": "manual"
       }
     },
     "EUR_INR": {
@@ -152,11 +127,6 @@
         "rate": 109.7189,
         "updated": "2026-04-30",
         "source": "scrape"
-      },
-      "ria": {
-        "rate": 110.55,
-        "updated": "2026-04-30",
-        "source": "manual"
       }
     },
     "CAD_INR": {
@@ -174,11 +144,6 @@
         "rate": 68.5844,
         "updated": "2026-04-30",
         "source": "scrape"
-      },
-      "ria": {
-        "rate": 69.03749,
-        "updated": "2026-04-30",
-        "source": "manual"
       }
     },
     "AUD_INR": {
@@ -188,14 +153,9 @@
         "source": "ecb-proxy"
       },
       "xoom": {
-        "rate": 68.4295,
+        "rate": 68.8746,
         "updated": "2026-04-30",
         "source": "scrape"
-      },
-      "ria": {
-        "rate": 67.34817,
-        "updated": "2026-04-30",
-        "source": "manual"
       }
     }
   }
