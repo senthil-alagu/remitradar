@@ -930,6 +930,7 @@
           const meta = PROVIDER_META[id] || PROVIDER_META[id.toLowerCase()];
           if (!meta || !data.rate) continue;
           const pct = (data.rate - mid) / mid * 100;
+          console.log("build rows"+data.updated);
           rows.push({ id, meta, rate: data.rate, updated: data.updated, source: data.source, pct });
         }
 
@@ -953,7 +954,8 @@
           const isLive = source === 'api';
           const stale = isStale(updated);
           const dClass = diffClass(pct);
-
+          console.log("render rows"+updated);
+          console.log("build rows formated"+fmtDate(updated));
           const sourceTag = isLive
             ? `<span class="live-tag">LIVE</span>`
             : stale
