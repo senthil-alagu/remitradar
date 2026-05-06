@@ -200,10 +200,17 @@ async function fetchICICI(from, to, page) {
 }
 
 // ─── 4. WESTERN UNION ─────────────────────────────────────────────────────
-// Uses the internal price catalog API — same endpoint the website uses.
-// Two delivery methods returned: "Money In Minutes" (service 000) and
-// "Direct to Bank" (service 500). We take Direct to Bank — always better FX.
-// Rate is amount-independent (WU charges $0 fee and keeps spread in FX rate).
+// POST to /wuconnect/prices/catalog — same API the WU website uses.
+//
+// fund_in codes: AC=bank, CC=credit card, DC=debit card, AR/AD/AP=Apple Pay, GP=Google Pay
+//
+// Strategy:
+//   1. Read categories[0].services (WU's own "Best FX" list) — take highest fx_rate
+//   2. Match that service back to services_groups to get the confirmed fx_rate
+//   3. Fall back to Direct to Bank (500) via bank account (AC) if bestfx not found
+//
+// Use send_amount=1000 as standard — rate varies by amount so must be consistent.
+
 async function fetchWU(from, to) {
   if (from !== 'USD') { log(`  ↷ WU skipped for ${from}`); return null; }
 
@@ -222,17 +229,14 @@ async function fetchWU(from, to) {
         'Referer': 'https://www.westernunion.com/us/en/currency-converter/usd-to-inr-rate.html',
       },
       body: JSON.stringify({
-        header_request: {
-          version: '0.5',
-          request_type: 'PRICECATALOG'
-        },
+        header_request: { version: '0.5', request_type: 'PRICECATALOG' },
         sender: {
           client: 'WUCOM',
           channel: 'WWEB',
-          funds_in: 'AC',
+          funds_in: 'AC',       // bank account — most common payment method
           curr_iso3: from,
           cty_iso2_ext: 'US',
-          send_amount: '1000'          // fixed standard amount
+          send_amount: '1000'   // standard amount — rate varies by amount
         },
         receiver: {
           curr_iso3: to,
@@ -245,21 +249,36 @@ async function fetchWU(from, to) {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
 
-    // Prefer Direct to Bank (service 500) — better FX rate than Money in Minutes (000)
-    // Fall back to best available if 500 not present
-    const services = data?.services_groups ?? [];
+    // Strategy 1: use WU's own "Best FX" category — most honest rate
+    const bestFxServices = data?.categories?.find(c => c.type === 'bestfx')?.services ?? [];
+    if (bestFxServices.length > 0) {
+      // Pick highest fx_rate from bestfx list
+      const best = bestFxServices.reduce((a, b) => b.fx_rate > a.fx_rate ? b : a);
+      if (best.fx_rate && isPlausible(best.fx_rate, from, to)) {
+        log(`  ✓ WU (bestfx pay_in:${best.pay_in} pay_out:${best.pay_out}): ${best.fx_rate}`);
+        return parseFloat(best.fx_rate);
+      }
+    }
 
-    const directToBank = services.find(s => s.service === '500');
-    const moneyInMinutes = services.find(s => s.service === '000');
-    const best = directToBank ?? moneyInMinutes;
+    // Strategy 2: fallback — Direct to Bank (500) via bank account (AC)
+    const service500 = data?.services_groups?.find(s => s.service === '500');
+    const acGroup = service500?.pay_groups?.find(pg => pg.fund_in === 'AC');
+    if (acGroup?.fx_rate && isPlausible(acGroup.fx_rate, from, to)) {
+      log(`  ✓ WU (Direct to Bank AC fallback): ${acGroup.fx_rate}`);
+      return parseFloat(acGroup.fx_rate);
+    }
 
-    if (!best) throw new Error('no services in response');
+    // Strategy 3: any service, any pay_group — last resort
+    for (const svc of data?.services_groups ?? []) {
+      for (const pg of svc.pay_groups ?? []) {
+        if (isPlausible(pg.fx_rate, from, to)) {
+          log(`  ✓ WU (fallback ${svc.service}/${pg.fund_in}): ${pg.fx_rate}`);
+          return parseFloat(pg.fx_rate);
+        }
+      }
+    }
 
-    const rate = parseFloat(best.pay_groups?.[0]?.fx_rate);
-    if (isNaN(rate) || rate <= 0) throw new Error(`invalid rate: ${rate}`);
-
-    log(`  ✓ WU (${best.service_name}): ${rate}`);
-    return rate;
+    throw new Error('no plausible rate found in response');
 
   } catch (e) {
     log(`  ✗ WU: ${e.message}`);
