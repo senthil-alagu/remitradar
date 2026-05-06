@@ -200,15 +200,67 @@ async function fetchICICI(from, to, page) {
 }
 
 // ─── 4. WESTERN UNION ─────────────────────────────────────────────────────
-// WU US site only supports USD send
-async function fetchWU(from, to, page) {
+// Uses the internal price catalog API — same endpoint the website uses.
+// Two delivery methods returned: "Money In Minutes" (service 000) and
+// "Direct to Bank" (service 500). We take Direct to Bank — always better FX.
+// Rate is amount-independent (WU charges $0 fee and keeps spread in FX rate).
+async function fetchWU(from, to) {
   if (from !== 'USD') { log(`  ↷ WU skipped for ${from}`); return null; }
+
+  const COUNTRY_MAP = { INR: 'IN', MXN: 'MX', PHP: 'PH', PKR: 'PK' };
+  const toCountry = COUNTRY_MAP[to];
+  if (!toCountry) { log(`  ↷ WU skipped for ${to}`); return null; }
+
   try {
-    const url = `https://www.westernunion.com/us/en/currency-converter/${from.toLowerCase()}-to-${to.toLowerCase()}-rate.html`;
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-    const rate = await waitForRate(page, from, to, 15000);
-    if (!rate) throw new Error('rate not found');
+    const res = await fetch('https://www.westernunion.com/wuconnect/prices/catalog', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Origin': 'https://www.westernunion.com',
+        'Referer': 'https://www.westernunion.com/us/en/currency-converter/usd-to-inr-rate.html',
+      },
+      body: JSON.stringify({
+        header_request: {
+          version: '0.5',
+          request_type: 'PRICECATALOG'
+        },
+        sender: {
+          client: 'WUCOM',
+          channel: 'WWEB',
+          funds_in: 'AC',
+          curr_iso3: from,
+          cty_iso2_ext: 'US',
+          send_amount: '1000'          // fixed standard amount
+        },
+        receiver: {
+          curr_iso3: to,
+          cty_iso2_ext: toCountry,
+          cty_iso2: toCountry
+        }
+      })
+    });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    // Prefer Direct to Bank (service 500) — better FX rate than Money in Minutes (000)
+    // Fall back to best available if 500 not present
+    const services = data?.services_groups ?? [];
+
+    const directToBank = services.find(s => s.service === '500');
+    const moneyInMinutes = services.find(s => s.service === '000');
+    const best = directToBank ?? moneyInMinutes;
+
+    if (!best) throw new Error('no services in response');
+
+    const rate = parseFloat(best.pay_groups?.[0]?.fx_rate);
+    if (isNaN(rate) || rate <= 0) throw new Error(`invalid rate: ${rate}`);
+
+    log(`  ✓ WU (${best.service_name}): ${rate}`);
     return rate;
+
   } catch (e) {
     log(`  ✗ WU: ${e.message}`);
     return null;
@@ -382,7 +434,7 @@ async function main() {
     // 4. WU (USD only)
     if (page) {
       log(`  Fetching Western Union...`);
-      save('wu', await fetchWU(from, to, page), 'scrape');
+      save('wu', await fetchWU(from, to), 'api');  // source is now 'api' not 'scrape'
       await sleep(2000);
     }
 
