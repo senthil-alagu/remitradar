@@ -32,7 +32,8 @@
         "rate": 93.7486,
         "updated": "2026-05-10T14:48:35.412Z",
         "source": "api"
-      }
+      },
+     "Ria": { "rate": 94.4296, "updated": "2026-05-10T18:15:28.581Z", "source": "api" }
     },
     "USD_MXN": {
       "wise": {
@@ -54,7 +55,8 @@
         "rate": 17.4152,
         "updated": "2026-05-10T14:49:00.445Z",
         "source": "scrape"
-      }
+      },
+      "Ria": { "rate": 17.1730, "updated": "2026-05-10T18:15:28.581Z", "source": "api" }
     },
     "USD_PHP": {
       "wise": {
@@ -76,7 +78,8 @@
         "rate": 58.3824,
         "updated": "2026-05-10T14:49:28.294Z",
         "source": "scrape"
-      }
+      },
+       "Ria": { "rate": 60.4839, "updated": "2026-05-10T18:15:28.581Z", "source": "api" }
     },
     "USD_PKR": {
       "wise": {
@@ -98,7 +101,8 @@
         "rate": 269.4546,
         "updated": "2026-05-10T14:50:12.644Z",
         "source": "scrape"
-      }
+      },
+      "Ria": { "rate": 278.7208, "updated": "2026-05-10T18:15:28.581Z", "source": "api" }
     },
     "GBP_INR": {
       "wise": {
@@ -115,7 +119,8 @@
         "rate": 127.3856,
         "updated": "2026-05-10T14:51:12.139Z",
         "source": "scrape"
-      }
+      },
+      "Ria": { "rate": 128.7734, "updated": "2026-05-10T18:15:28.581Z", "source": "api" }
     },
     "EUR_INR": {
       "wise": {
@@ -132,7 +137,8 @@
         "rate": 109.9025,
         "updated": "2026-05-10T14:52:28.111Z",
         "source": "scrape"
-      }
+      },
+      "Ria": { "rate": 111.3581, "updated": "2026-05-10T18:15:28.581Z", "source": "api" }
     },
     "CAD_INR": {
       "wise": {
@@ -149,7 +155,8 @@
         "rate": 68.1445,
         "updated": "2026-05-10T14:53:40.330Z",
         "source": "scrape"
-      }
+      },
+       "Ria": { "rate": 69.0705, "updated": "2026-05-10T18:15:28.581Z", "source": "api" }
     },
     "AUD_INR": {
       "wise": {
@@ -161,7 +168,8 @@
         "rate": 68.9813,
         "updated": "2026-05-10T14:54:56.301Z",
         "source": "scrape"
-      }
+      },
+      "Ria": { "rate": 68.4716, "updated": "2026-05-10T18:15:28.581Z", "source": "api" }
     }
   }
 }
