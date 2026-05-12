@@ -9,52 +9,56 @@ on:
 
 jobs:
   fetch-rates:
-    name: Fetch and update rates
+    name: Fetch rates + regenerate SEO pages
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      actions: write
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: scraper/package.json
-      - name: Install dependencies
+
+      - name: Install scraper dependencies
         working-directory: scraper
         run: npm install
+
       - name: Install Playwright browsers
         working-directory: scraper
         run: npx playwright install chromium --with-deps
+
       - name: Fetch rates
         working-directory: scraper
         env:
           WISE_API_KEY: ${{ secrets.WISE_API_KEY }}
         run: node fetch_rates.js
         continue-on-error: true
-      - name: Commit updated rates
+
+      # ── NEW: generate one HTML page per corridor ──────────────────────────
+      - name: Generate SEO pages
+        run: node generate_pages.js
+        continue-on-error: true   # don't fail the whole run if a page errors
+
+      - name: Commit updated files
         run: |
           git config user.name "RemitRadar Bot"
           git config user.email "bot@remiradar.com"
-          git add public/rates.json
-          git diff --staged --quiet || git commit -m "chore: update rates $(date -u '+%Y-%m-%d %H:%M UTC')"
+          git add public/rates.json public/sitemap.xml public/robots.txt public/*/index.html
+          git diff --staged --quiet || git commit -m "chore: update rates + pages $(date -u '+%Y-%m-%d %H:%M UTC')"
           git push
-      - name: Trigger Pages deployment
-        run: |
-          curl -X POST \
-            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            -H "Accept: application/vnd.github+json" \
-            https://api.github.com/repos/${{ github.repository }}/actions/workflows/deploy-pages.yml/dispatches \
-            -d '{"ref":"main"}'     
+
       - name: Print summary
         run: |
           node -e "
             const d = JSON.parse(require('fs').readFileSync('public/rates.json','utf8'));
             console.log('Last run:', d.lastRun);
             for (const [c, p] of Object.entries(d.corridors)) {
-              console.log(c + ': ' + Object.entries(p).map(([k,v]) => k+':'+v.rate).join(' | '));
+              const count = Object.keys(p).length;
+              console.log(c + ' [' + count + ' providers]: ' + Object.entries(p).map(([k,v]) => k+':'+v.rate).join(' | '));
             }
           "
