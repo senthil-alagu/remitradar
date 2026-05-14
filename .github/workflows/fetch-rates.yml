@@ -52,6 +52,14 @@ jobs:
           git diff --staged --quiet || git commit -m "chore: update rates + pages $(date -u '+%Y-%m-%d %H:%M UTC')"
           git push
 
+      - name: Trigger deploy-pages workflow
+        run: |
+          curl -X POST \
+            -H "Authorization: token ${{ secrets.PAT_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/senthil-alagu/remitradar/actions/workflows/deploy-pages.yml/dispatches \
+            -d '{"ref":"main"}'
+
       - name: Print summary
         run: |
           node -e "
