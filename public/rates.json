@@ -1,165 +1,165 @@
 {
-  "lastRun": "2026-05-13T21:17:43.866Z",
-  "date": "2026-05-13T21:17:43.866Z",
+  "lastRun": "2026-05-14T00:37:42.656Z",
+  "date": "2026-05-14T00:37:42.656Z",
   "corridors": {
     "USD_INR": {
       "wise": {
         "rate": 95.67,
-        "updated": "2026-05-13T21:17:44.289Z",
+        "updated": "2026-05-14T00:37:44.457Z",
         "source": "ecb-proxy"
       },
       "icici": {
         "rate": 95.24,
-        "updated": "2026-05-13T21:18:02.510Z",
+        "updated": "2026-05-14T00:37:59.881Z",
         "source": "scrape"
       },
       "wu": {
         "rate": 95.131,
-        "updated": "2026-05-13T21:18:05.177Z",
+        "updated": "2026-05-14T00:38:02.373Z",
         "source": "api"
       },
       "remitly": {
         "rate": 95.97,
-        "updated": "2026-05-13T21:18:07.905Z",
+        "updated": "2026-05-14T00:38:05.062Z",
         "source": "scrape"
       },
       "xoom": {
         "rate": 95.4609,
-        "updated": "2026-05-13T21:18:10.725Z",
+        "updated": "2026-05-14T00:38:08.135Z",
         "source": "scrape"
       },
       "instarem": {
         "rate": 95.0297,
-        "updated": "2026-05-13T21:18:17.548Z",
+        "updated": "2026-05-14T00:38:13.264Z",
         "source": "api"
       }
     },
     "USD_MXN": {
       "wise": {
         "rate": 17.2232,
-        "updated": "2026-05-13T21:18:37.042Z",
+        "updated": "2026-05-14T00:38:32.719Z",
         "source": "ecb-proxy"
       },
       "wu": {
         "rate": 16.995,
-        "updated": "2026-05-13T21:18:37.641Z",
+        "updated": "2026-05-14T00:38:33.208Z",
         "source": "api"
       },
       "remitly": {
-        "rate": 17.59,
-        "updated": "2026-05-13T21:18:40.233Z",
+        "rate": 17.51,
+        "updated": "2026-05-14T00:38:35.833Z",
         "source": "scrape"
       },
       "xoom": {
-        "rate": 17.4135,
-        "updated": "2026-05-13T21:18:42.853Z",
+        "rate": 17.3992,
+        "updated": "2026-05-14T00:38:38.577Z",
         "source": "scrape"
       }
     },
     "USD_PHP": {
       "wise": {
         "rate": 61.396,
-        "updated": "2026-05-13T21:19:04.282Z",
+        "updated": "2026-05-14T00:39:00.492Z",
         "source": "ecb-proxy"
       },
       "wu": {
         "rate": 60.363,
-        "updated": "2026-05-13T21:19:04.661Z",
+        "updated": "2026-05-14T00:39:00.911Z",
         "source": "api"
       },
       "remitly": {
-        "rate": 62.71,
-        "updated": "2026-05-13T21:19:07.374Z",
+        "rate": 62.73,
+        "updated": "2026-05-14T00:39:03.679Z",
         "source": "scrape"
       },
       "xoom": {
         "rate": 59.293,
-        "updated": "2026-05-13T21:19:10.404Z",
+        "updated": "2026-05-14T00:39:06.418Z",
         "source": "scrape"
       }
     },
     "USD_PKR": {
       "wise": {
-        "rate": 278.916932,
-        "updated": "2026-05-13T21:19:49.642Z",
+        "rate": 278.821286,
+        "updated": "2026-05-14T00:39:45.289Z",
         "source": "ecb-proxy"
       },
       "wu": {
         "rate": 279.0083,
-        "updated": "2026-05-13T21:19:50.018Z",
+        "updated": "2026-05-14T00:39:45.666Z",
         "source": "api"
       },
       "remitly": {
         "rate": 280.85,
-        "updated": "2026-05-13T21:19:52.560Z",
+        "updated": "2026-05-14T00:39:48.358Z",
         "source": "scrape"
       },
       "xoom": {
         "rate": 269.8018,
-        "updated": "2026-05-13T21:19:55.468Z",
+        "updated": "2026-05-14T00:39:51.538Z",
         "source": "scrape"
       }
     },
     "GBP_INR": {
       "wise": {
         "rate": 129.25,
-        "updated": "2026-05-13T21:20:16.914Z",
+        "updated": "2026-05-14T00:40:13.241Z",
         "source": "ecb-proxy"
       },
       "icici": {
-        "rate": 129.72,
-        "updated": "2026-05-13T21:20:30.833Z",
+        "rate": 129.65,
+        "updated": "2026-05-14T00:40:25.030Z",
         "source": "scrape"
       },
       "xoom": {
-        "rate": 127.9959,
-        "updated": "2026-05-13T21:20:50.213Z",
+        "rate": 128.0986,
+        "updated": "2026-05-14T00:40:44.652Z",
         "source": "scrape"
       }
     },
     "EUR_INR": {
       "wise": {
         "rate": 112.0793,
-        "updated": "2026-05-13T21:21:29.161Z",
+        "updated": "2026-05-14T00:41:23.473Z",
         "source": "ecb-proxy"
       },
       "icici": {
         "rate": 112.1125,
-        "updated": "2026-05-13T21:21:46.933Z",
+        "updated": "2026-05-14T00:41:36.563Z",
         "source": "scrape"
       },
       "xoom": {
-        "rate": 110.6697,
-        "updated": "2026-05-13T21:22:06.394Z",
+        "rate": 110.7271,
+        "updated": "2026-05-14T00:41:56.183Z",
         "source": "scrape"
       }
     },
     "CAD_INR": {
       "wise": {
         "rate": 69.88,
-        "updated": "2026-05-13T21:22:45.133Z",
+        "updated": "2026-05-14T00:42:35.578Z",
         "source": "ecb-proxy"
       },
       "icici": {
         "rate": 68.92,
-        "updated": "2026-05-13T21:23:00.971Z",
+        "updated": "2026-05-14T00:42:48.296Z",
         "source": "scrape"
       },
       "xoom": {
-        "rate": 68.9769,
-        "updated": "2026-05-13T21:23:20.473Z",
+        "rate": 68.9219,
+        "updated": "2026-05-14T00:43:07.954Z",
         "source": "scrape"
       }
     },
     "AUD_INR": {
       "wise": {
         "rate": 69.365,
-        "updated": "2026-05-13T21:23:59.323Z",
+        "updated": "2026-05-14T00:43:46.770Z",
         "source": "ecb-proxy"
       },
       "xoom": {
-        "rate": 70.0068,
-        "updated": "2026-05-13T21:24:31.442Z",
+        "rate": 70.0335,
+        "updated": "2026-05-14T00:44:16.978Z",
         "source": "scrape"
       }
     }

@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://remiradar.in/sitemap.xml
+Sitemap: https://remitradar.in/sitemap.xml
