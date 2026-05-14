@@ -21,7 +21,7 @@ const RATES     = join(PUBLIC, 'rates.json');
 
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
 
-const SITE_URL = 'https://remiradar.in';
+const SITE_URL = 'https://remitradar.in';
 
 const PROVIDER_META = {
   wise:     { name: 'Wise',           tag: 'Near mid-market rate',  url: 'https://wise.com/send' },
