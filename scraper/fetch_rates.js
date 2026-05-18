@@ -391,66 +391,86 @@ async function fetchRevolut(from, to, page) {
 }
 
 // ─── 10. MONEYGRAM ────────────────────────────────────────────────────────
-// Public fee-quote API discovered via network inspect on moneygram.com.
-// Endpoint returns fxRate directly — no need to back-calculate.
-// Supports all send currencies (GBP, EUR, CAD, AUD, USD).
-// Uses 1000 units of send currency as the sample amount.
-// Note: response also includes a `promo` rate — we use the standard fxRate,
-//       which reflects their normal daily rate rather than a promotional offer.
-async function fetchMoneygram(from, to) {
-  // MoneyGram uses ISO 3166-1 alpha-3 country codes for both sender and receiver.
-  // For EUR we use DEU (Germany) as the sender country — any eurozone country works.
+// The fee-quote API returns 403 from cloud IPs — it requires session cookies
+// set by the browser during page load. Use Playwright instead:
+// load the send-money calculator page, wait for the rate to render, extract it.
+async function fetchMoneygram(from, to, page) {
+  if (!page) return null;
+ 
+  // MoneyGram uses ISO 3166-1 alpha-3 for country codes in the URL
   const senderMap = {
-    USD: { country: 'USA', currency: 'USD' },
-    GBP: { country: 'GBR', currency: 'GBP' },
-    EUR: { country: 'DEU', currency: 'EUR' },
-    CAD: { country: 'CAN', currency: 'CAD' },
-    AUD: { country: 'AUS', currency: 'AUD' },
+    USD: { country: 'united-states', code: 'USA', currency: 'USD' },
+    GBP: { country: 'united-kingdom', code: 'GBR', currency: 'GBP' },
+    EUR: { country: 'germany',        code: 'DEU', currency: 'EUR' },
+    CAD: { country: 'canada',         code: 'CAN', currency: 'CAD' },
+    AUD: { country: 'australia',      code: 'AUS', currency: 'AUD' },
   };
   const receiverMap = {
-    INR: { country: 'IND', currency: 'INR' },
-    MXN: { country: 'MEX', currency: 'MXN' },
-    PHP: { country: 'PHL', currency: 'PHP' },
-    PKR: { country: 'PAK', currency: 'PKR' },
+    INR: { country: 'india',        code: 'IND', currency: 'INR' },
+    MXN: { country: 'mexico',       code: 'MEX', currency: 'MXN' },
+    PHP: { country: 'philippines',  code: 'PHL', currency: 'PHP' },
+    PKR: { country: 'pakistan',     code: 'PAK', currency: 'PKR' },
   };
  
-  const sender = senderMap[from];
+  const sender   = senderMap[from];
   const receiver = receiverMap[to];
-  if (!sender) { log(`  ↷ MoneyGram skipped for ${from} (unmapped sender)`); return null; }
-  if (!receiver) { log(`  ↷ MoneyGram skipped for ${to} (unmapped receiver)`); return null; }
+  if (!sender)   { log(`  ↷ MoneyGram skipped for ${from} (unmapped sender)`);   return null; }
+  if (!receiver) { log(`  ↷ MoneyGram skipped for ${to} (unmapped receiver)`);   return null; }
  
   try {
-    const url =
-      `https://www.moneygram.com/api/send-money/fee-quote/v2` +
-      `?senderCountryCode=${sender.country}` +
-      `&senderCurrencyCode=${sender.currency}` +
-      `&receiverCountryCode=${receiver.country}` +
-      `&sendAmount=1000.00`;
+    // Strategy 1: intercept the fee-quote API call that the page itself makes
+    // (the browser's session cookies are attached automatically by Playwright)
+    let interceptedRate = null;
  
-    const res = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': 'application/json',
-        'Referer': 'https://www.moneygram.com/',
-      },
+    await page.route('**/fee-quote/**', async route => {
+      // Let the request proceed, then read the response
+      const response = await route.fetch();
+      try {
+        const body = await response.json();
+        const quote = body?.feeQuotesByCurrency?.[receiver.currency];
+        if (quote?.fxRate) interceptedRate = parseFloat(quote.fxRate);
+      } catch { /* ignore parse errors */ }
+      await route.fulfill({ response });
     });
  
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
+    const url = `https://www.moneygram.com/mgo/us/en/send-money?` +
+      `sourceCountry=${sender.code}&` +
+      `destinationCountry=${receiver.code}&` +
+      `sourceCurrency=${sender.currency}&` +
+      `destinationCurrency=${receiver.currency}`;
  
-    const quote = data?.feeQuotesByCurrency?.[receiver.currency];
-    if (!quote) throw new Error(`no quote for ${receiver.currency} in response`);
-    if (!quote.fxRate) throw new Error('fxRate missing from quote');
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
  
-    const rate = parseFloat(quote.fxRate);
-    log(`  MoneyGram ${from}→${to}: fxRate=${rate} (promo available: ${!!quote.promo})`);
-    return rate;
+    // Wait up to 15s for the intercept to fire
+    const start = Date.now();
+    while (!interceptedRate && Date.now() - start < 15000) {
+      await sleep(800);
+    }
+ 
+    // Unregister the route handler before next use
+    await page.unroute('**/fee-quote/**');
+ 
+    if (interceptedRate && isPlausible(interceptedRate, from, to)) {
+      log(`  MoneyGram ${from}→${to}: intercepted fxRate=${interceptedRate}`);
+      return interceptedRate;
+    }
+ 
+    // Strategy 2: fall back to text extraction from the rendered page
+    log(`  MoneyGram: intercept missed, trying text extraction...`);
+    const rate = await waitForRate(page, from, to, 10000);
+    if (rate) {
+      log(`  MoneyGram ${from}→${to}: text-extracted rate=${rate}`);
+      return rate;
+    }
+ 
+    throw new Error('rate not found via intercept or text extraction');
   } catch (e) {
     log(`  ✗ MoneyGram: ${e.message}`);
+    await page.unroute('**/fee-quote/**').catch(() => {});
     return null;
   }
 }
-
+ 
 // ─── MAIN ─────────────────────────────────────────────────────────────────
 async function main() {
   log('RemitRadar rate fetcher v7 starting...');
@@ -559,9 +579,12 @@ async function main() {
       await sleep(2000);
     }
 
-     // 10. MoneyGram (USD only; public fee-quote API — no browser needed)
-    log(`  Fetching MoneyGram...`);
-    save('moneygram', await fetchMoneygram(from, to), 'api');
+     // 10. MoneyGram (all corridors; Playwright — API needs browser session cookies)
+    if (page) {
+      log(`  Fetching MoneyGram...`);
+      save('moneygram', await fetchMoneygram(from, to, page), 'scrape');
+      await sleep(2000);
+    }
   }
 
   if (browser) { await browser.close(); log('\nBrowser closed.'); }
