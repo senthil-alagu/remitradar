@@ -10,6 +10,16 @@
  *   ICICI AUD:     money2india.com/au doesn't reliably show AUD — skip AUD for ICICI
  */
 
+/**
+ * RemitRadar — Rate Fetcher v8
+ * ─────────────────────────────
+ * Changes from v7:
+ *   MoneyGram:  Added fetchMoneygram() using public fee-quote API
+ *               (discovered via network inspect on moneygram.com)
+ *               Supports all send currencies: USD/GBP/EUR/CAD/AUD
+ *               Uses fxRate field from feeQuotesByCurrency response
+ */
+
 import fetch from 'node-fetch';
 import { createRequire } from 'module';
 import { chromium } from 'playwright';
