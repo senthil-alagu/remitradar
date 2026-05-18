@@ -380,6 +380,67 @@ async function fetchRevolut(from, to, page) {
   }
 }
 
+// ─── 10. MONEYGRAM ────────────────────────────────────────────────────────
+// Public fee-quote API discovered via network inspect on moneygram.com.
+// Endpoint returns fxRate directly — no need to back-calculate.
+// Supports all send currencies (GBP, EUR, CAD, AUD, USD).
+// Uses 1000 units of send currency as the sample amount.
+// Note: response also includes a `promo` rate — we use the standard fxRate,
+//       which reflects their normal daily rate rather than a promotional offer.
+async function fetchMoneygram(from, to) {
+  // MoneyGram uses ISO 3166-1 alpha-3 country codes for both sender and receiver.
+  // For EUR we use DEU (Germany) as the sender country — any eurozone country works.
+  const senderMap = {
+    USD: { country: 'USA', currency: 'USD' },
+    GBP: { country: 'GBR', currency: 'GBP' },
+    EUR: { country: 'DEU', currency: 'EUR' },
+    CAD: { country: 'CAN', currency: 'CAD' },
+    AUD: { country: 'AUS', currency: 'AUD' },
+  };
+  const receiverMap = {
+    INR: { country: 'IND', currency: 'INR' },
+    MXN: { country: 'MEX', currency: 'MXN' },
+    PHP: { country: 'PHL', currency: 'PHP' },
+    PKR: { country: 'PAK', currency: 'PKR' },
+  };
+ 
+  const sender = senderMap[from];
+  const receiver = receiverMap[to];
+  if (!sender) { log(`  ↷ MoneyGram skipped for ${from} (unmapped sender)`); return null; }
+  if (!receiver) { log(`  ↷ MoneyGram skipped for ${to} (unmapped receiver)`); return null; }
+ 
+  try {
+    const url =
+      `https://www.moneygram.com/api/send-money/fee-quote/v2` +
+      `?senderCountryCode=${sender.country}` +
+      `&senderCurrencyCode=${sender.currency}` +
+      `&receiverCountryCode=${receiver.country}` +
+      `&sendAmount=1000.00`;
+ 
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'application/json',
+        'Referer': 'https://www.moneygram.com/',
+      },
+    });
+ 
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+ 
+    const quote = data?.feeQuotesByCurrency?.[receiver.currency];
+    if (!quote) throw new Error(`no quote for ${receiver.currency} in response`);
+    if (!quote.fxRate) throw new Error('fxRate missing from quote');
+ 
+    const rate = parseFloat(quote.fxRate);
+    log(`  MoneyGram ${from}→${to}: fxRate=${rate} (promo available: ${!!quote.promo})`);
+    return rate;
+  } catch (e) {
+    log(`  ✗ MoneyGram: ${e.message}`);
+    return null;
+  }
+}
+
 // ─── MAIN ─────────────────────────────────────────────────────────────────
 async function main() {
   log('RemitRadar rate fetcher v7 starting...');
@@ -487,6 +548,10 @@ async function main() {
       save('revolut', await fetchRevolut(from, to, page), 'scrape');
       await sleep(2000);
     }
+
+     // 10. MoneyGram (USD only; public fee-quote API — no browser needed)
+    log(`  Fetching MoneyGram...`);
+    save('moneygram', await fetchMoneygram(from, to), 'api');
   }
 
   if (browser) { await browser.close(); log('\nBrowser closed.'); }
