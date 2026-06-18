@@ -581,11 +581,11 @@ async function main() {
     }
 
      // 10. MoneyGram (all corridors; Playwright — API needs browser session cookies)
-    if (page) {
+    /*if (page) {
       log(`  Fetching MoneyGram...`);
       save('moneygram', await fetchMoneygram(from, to, page), 'scrape');
       await sleep(2000);
-    }
+    }*/
   }
 
   if (browser) { await browser.close(); log('\nBrowser closed.'); }
