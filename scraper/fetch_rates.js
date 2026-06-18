@@ -430,7 +430,7 @@ async function fetchMoneygram(from, to, page) {
         const body = await response.json();
         const quote = body?.feeQuotesByCurrency?.[receiver.currency];
         if (quote?.fxRate) interceptedRate = parseFloat(quote.fxRate);
-      } catch { /* ignore parse errors */ }
+      } catch {  }
       await route.fulfill({ response });
     });
  
