@@ -394,7 +394,7 @@ async function fetchRevolut(from, to, page) {
 // The fee-quote API returns 403 from cloud IPs — it requires session cookies
 // set by the browser during page load. Use Playwright instead:
 // load the send-money calculator page, wait for the rate to render, extract it.
-/*
+
 async function fetchMoneygram(from, to, page) {
   if (!page) return null;
  
@@ -431,7 +431,7 @@ async function fetchMoneygram(from, to, page) {
         const quote = body?.feeQuotesByCurrency?.[receiver.currency];
         if (quote?.fxRate) interceptedRate = parseFloat(quote.fxRate);
       } catch { /* ignore parse errors */ }
-   /*   await route.fulfill({ response });
+      await route.fulfill({ response });
     });
  
     const url = `https://www.moneygram.com/mgo/us/en/send-money?` +
@@ -470,7 +470,7 @@ async function fetchMoneygram(from, to, page) {
     await page.unroute('**/fee-quote/**').catch(() => {});
     return null;
   }
-}*/
+}
  
 // ─── MAIN ─────────────────────────────────────────────────────────────────
 async function main() {
