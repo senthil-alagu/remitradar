@@ -736,7 +736,7 @@
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:20px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
           <div>
-            <div style="font-family:var(--fh);font-weight:700;font-size:15px">Mid-market rate · last 30 days</div>
+            <div id="chartTitle" style="font-family:var(--fh);font-weight:700;font-size:15px">Mid-market rate · last 30 days</div>
             <div style="font-size:12px;color:var(--ink3);margin-top:2px">European Central Bank via Frankfurter</div>
           </div>
           <div style="display:flex;gap:8px">
@@ -885,7 +885,8 @@
     async function loadChart(from, to, days = 30) {
       const wrap = document.getElementById('chartWrap');
       wrap.style.display = 'none';
-    
+      const label = days === 180 ? 'last 6 months' : `last ${days} days`;
+      document.getElementById('chartTitle').textContent = `Mid-market rate · ${label}`;
       const end = new Date();
       const start = new Date();
       start.setDate(start.getDate() - days);
