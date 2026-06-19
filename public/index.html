@@ -15,6 +15,7 @@
     gtag('js', new Date());
     gtag('config', 'G-4K3KB2192K');
   </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link
     href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;500;600;700;800&family=Instrument+Sans:wght@400;500&display=swap"
@@ -574,6 +575,28 @@
       text-decoration: none;
     }
 
+    /*-------------Graph-------- */
+    .range-btn {
+      padding: 5px 12px;
+      font-family: var(--fb);
+      font-size: 12px;
+      font-weight: 500;
+      border: 1px solid var(--border2);
+      border-radius: var(--rs);
+      background: var(--surface2);
+      color: var(--ink2);
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .range-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .range-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    
+    .stat-box { display:flex; flex-direction:column; gap:2px; }
+    .stat-label { font-size:11px; color:var(--ink3); text-transform:uppercase; letter-spacing:.05em; font-weight:600; }
+    .stat-val { font-family:var(--fh); font-size:16px; font-weight:700; }
+    .stat-val.up { color: var(--accent); }
+    .stat-val.down { color: var(--danger); }
+
     /* ── RESPONSIVE ─────────────────────────────────────────── */
     @media(max-width:600px) {
 
@@ -702,7 +725,26 @@
     <div id="results">
       <div class="status">Select a currency pair above to compare rates from all providers.</div>
     </div>
-
+    <!-- HISTORY CHART -->
+    <div id="chartWrap" style="display:none; margin-top:24px">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:20px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+          <div>
+            <div style="font-family:var(--fh);font-weight:700;font-size:15px">Mid-market rate · last 30 days</div>
+            <div style="font-size:12px;color:var(--ink3);margin-top:2px">European Central Bank via Frankfurter</div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="range-btn active" onclick="setRange(30)" data-days="30">30d</button>
+            <button class="range-btn" onclick="setRange(90)" data-days="90">90d</button>
+            <button class="range-btn" onclick="setRange(180)" data-days="180">6m</button>
+          </div>
+        </div>
+        <div style="position:relative;height:220px">
+          <canvas id="rateChart"></canvas>
+        </div>
+        <div id="chartStats" style="display:flex;gap:24px;margin-top:14px;flex-wrap:wrap"></div>
+      </div>
+    </div>
     <!-- DISCLAIMER -->
     <div class="disc" id="disc" style="display:none">
       <strong>Wise rate</strong> is fetched live from the Wise API.
@@ -787,6 +829,10 @@
 
     // ─── STATE ────────────────────────────────────────────────────────────────
     let ratesData = null; // loaded from rates.json
+    let chartInstance = null;
+    let currentFrom = null;
+    let currentTo = null;
+    let currentRange = 30;
 
     // ─── INIT ─────────────────────────────────────────────────────────────────
     async function init() {
@@ -821,6 +867,135 @@
       compare();
     }
 
+    // ─── CHART ────────────────────────────────────────────────────────────────
+    function setRange(days) {
+      currentRange = days;
+      document.querySelectorAll('.range-btn').forEach(b => {
+        b.classList.toggle('active', parseInt(b.dataset.days) === days);
+      });
+      if (currentFrom && currentTo) loadChart(currentFrom, currentTo, days);
+    }
+    
+    async function loadChart(from, to, days = 30) {
+      const wrap = document.getElementById('chartWrap');
+      wrap.style.display = 'none';
+    
+      const end = new Date();
+      const start = new Date();
+      start.setDate(start.getDate() - days);
+      const fmt = d => d.toISOString().split('T')[0];
+    
+      let rates = {};
+      try {
+        const res = await fetch(`https://api.frankfurter.dev/v1/${fmt(start)}..${fmt(end)}?from=${from}&to=${to}`);
+        if (!res.ok) return;
+        const json = await res.json();
+        rates = json.rates; // { "2026-05-01": { "INR": 84.12 }, ... }
+      } catch { return; }
+    
+      const dates = Object.keys(rates).sort();
+      if (dates.length < 2) return;
+    
+      const values = dates.map(d => rates[d][to]);
+      const min = Math.min(...values);
+      const max = Math.max(...values);
+      const first = values[0];
+      const last = values[values.length - 1];
+      const change = ((last - first) / first) * 100;
+      const isUp = change >= 0;
+    
+      // Render stats
+      document.getElementById('chartStats').innerHTML = `
+        <div class="stat-box">
+          <div class="stat-label">Current</div>
+          <div class="stat-val">${fmtRate(last)}</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">${days}d change</div>
+          <div class="stat-val ${isUp ? 'up' : 'down'}">${isUp ? '+' : ''}${change.toFixed(2)}%</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">${days}d high</div>
+          <div class="stat-val">${fmtRate(max)}</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">${days}d low</div>
+          <div class="stat-val">${fmtRate(min)}</div>
+        </div>
+      `;
+    
+      // Destroy previous chart
+      if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+    
+      const ctx = document.getElementById('rateChart').getContext('2d');
+      const gradient = ctx.createLinearGradient(0, 0, 0, 220);
+      gradient.addColorStop(0, 'rgba(26,107,60,0.15)');
+      gradient.addColorStop(1, 'rgba(26,107,60,0)');
+    
+      chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: dates.map(d => {
+            const dt = new Date(d + 'T12:00:00Z');
+            return dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+          }),
+          datasets: [{
+            data: values,
+            borderColor: '#1a6b3c',
+            borderWidth: 2,
+            backgroundColor: gradient,
+            fill: true,
+            tension: 0.3,
+            pointRadius: dates.length > 60 ? 0 : 3,
+            pointHoverRadius: 5,
+            pointBackgroundColor: '#1a6b3c',
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#1a1a18',
+              titleColor: '#9a9890',
+              bodyColor: '#fff',
+              bodyFont: { family: "'Bricolage Grotesque', sans-serif", weight: '700', size: 14 },
+              padding: 10,
+              callbacks: {
+                label: ctx => `${fmtRate(ctx.parsed.y)} ${to}`,
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: {
+                color: '#9a9890',
+                font: { size: 11 },
+                maxTicksLimit: days > 60 ? 6 : 8,
+                maxRotation: 0,
+              },
+              border: { display: false }
+            },
+            y: {
+              position: 'right',
+              grid: { color: '#e2e0d8' },
+              ticks: {
+                color: '#9a9890',
+                font: { size: 11 },
+                callback: v => fmtRate(v),
+                maxTicksLimit: 5,
+              },
+              border: { display: false }
+            }
+          }
+        }
+      });
+    
+      wrap.style.display = 'block';
+    }
     // ─── HELPERS ──────────────────────────────────────────────────────────────
     function fmtRate(n) {
       if (n >= 100) return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -866,7 +1041,8 @@
     async function compare() {
       const from = document.getElementById('fromCur').value;
       const to = document.getElementById('toCur').value;
-
+      currentFrom = from;
+      currentTo = to;
       if (from === to) {
         document.getElementById('results').innerHTML = '<div class="status">Please select two different currencies.</div>';
         return;
@@ -996,7 +1172,7 @@
 
       </div>`;
         }).join('');
-
+        loadChart(from, to, currentRange);
       } catch (e) {
         document.getElementById('results').innerHTML =
           `<div class="status" style="color:#dc2626">
