@@ -30,8 +30,14 @@ jobs:
 
       - name: Install Playwright browsers
         working-directory: scraper
-        run: npx playwright install chromium --with-deps
-
+        run: |
+          sudo rm -f /etc/apt/sources.list.d/google-chrome.list
+          sudo apt-get clean
+          for i in 1 2 3; do
+            npx playwright install chromium --with-deps && break
+            echo "Retry $i failed, waiting..."
+            sleep 10
+          done
       - name: Fetch rates
         working-directory: scraper
         env:
